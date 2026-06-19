@@ -7,17 +7,52 @@ import { checkCurrentSession, logoutAction } from '../actions/auth';
 interface AttendanceLog {
   date: string;
   day: string;
-  checkIn: string;
-  checkOut: string;
-  status: 'Normal' | 'Late' | 'Absent' | 'Pending';
+  morningIn: string;
+  lunchBreak: string;
+  afternoonIn: string;
+  leaveWork: string;
+  status: 'Normal' | 'Late' | 'Incomplete' | 'Absent';
 }
 
 const INITIAL_ATTENDANCE: AttendanceLog[] = [
-  { date: '18 มิ.ย. 2026', day: 'พฤหัสบดี', checkIn: '08:15 AM', checkOut: '05:00 PM', status: 'Normal' },
-  { date: '17 มิ.ย. 2026', day: 'พุธ', checkIn: '08:24 AM', checkOut: '05:05 PM', status: 'Normal' },
-  { date: '16 มิ.ย. 2026', day: 'อังคาร', checkIn: '08:42 AM', checkOut: '05:00 PM', status: 'Late' },
-  { date: '15 มิ.ย. 2026', day: 'จันทร์', checkIn: '08:08 AM', checkOut: '05:15 PM', status: 'Normal' },
+  { date: '18 มิ.ย. 2026', day: 'พฤหัสบดี', morningIn: '08:15 AM', lunchBreak: '12:05 PM', afternoonIn: '01:00 PM', leaveWork: '05:00 PM', status: 'Normal' },
+  { date: '17 มิ.ย. 2026', day: 'พุธ', morningIn: '08:24 AM', lunchBreak: '12:10 PM', afternoonIn: '01:05 PM', leaveWork: '05:05 PM', status: 'Normal' },
+  { date: '16 มิ.ย. 2026', day: 'อังคาร', morningIn: '08:42 AM', lunchBreak: '12:02 PM', afternoonIn: '01:12 PM', leaveWork: '05:00 PM', status: 'Late' },
+  { date: '15 มิ.ย. 2026', day: 'จันทร์', morningIn: '08:08 AM', lunchBreak: '11:58 AM', afternoonIn: '12:55 PM', leaveWork: '05:15 PM', status: 'Normal' },
 ];
+
+const getPeriodState = (periodId: 'morning' | 'lunch' | 'afternoon' | 'leave', now: Date) => {
+  const h = now.getHours();
+  const m = now.getMinutes();
+  const timeNum = h * 60 + m; // minutes since midnight
+
+  if (periodId === 'morning') {
+    if (timeNum < 480) return { label: 'ยังไม่ถึงเวลา', status: 'upcoming', active: false };
+    if (timeNum <= 540) return { label: 'เปิดให้เช็คอิน', status: 'active', active: true };
+    return { label: 'เลยเวลากำหนด', status: 'late', active: true };
+  }
+  if (periodId === 'lunch') {
+    if (timeNum < 720) return { label: 'ยังไม่ถึงเวลา', status: 'upcoming', active: false };
+    if (timeNum <= 780) return { label: 'เปิดให้บันทึก', status: 'active', active: true };
+    return { label: 'เลยเวลากำหนด', status: 'late', active: true };
+  }
+  if (periodId === 'afternoon') {
+    if (timeNum < 780) return { label: 'ยังไม่ถึงเวลา', status: 'upcoming', active: false };
+    if (timeNum <= 840) return { label: 'เปิดให้บันทึก', status: 'active', active: true };
+    return { label: 'เลยเวลากำหนด', status: 'late', active: true };
+  }
+  // leave
+  if (timeNum < 840) { // before 14:00
+    return { label: 'ยังไม่ถึงเวลา', status: 'upcoming', active: false };
+  }
+  if (timeNum < 1020) { // 14:00 - 17:00
+    return { label: 'เลิกงานก่อนกำหนด', status: 'early', active: true };
+  }
+  if (timeNum <= 1080) { // 17:00 - 18:00
+    return { label: 'เปิดให้บันทึก', status: 'active', active: true };
+  }
+  return { label: 'เลิกงานปกติ', status: 'normal', active: true };
+};
 
 export default function EmployeeDashboard() {
   const router = useRouter();
@@ -27,12 +62,14 @@ export default function EmployeeDashboard() {
   const [currentDate, setCurrentDate] = useState('');
   
   // Checking actions states
-  const [isCheckedIn, setIsCheckedIn] = useState(false);
-  const [isCheckedOut, setIsCheckedOut] = useState(false);
-  const [checkInTime, setCheckInTime] = useState('-');
-  const [checkOutTime, setCheckOutTime] = useState('-');
+  const [morningIn, setMorningIn] = useState<{ time: string; status: 'Normal' | 'Late' | '-' }>({ time: '-', status: '-' });
+  const [lunchBreak, setLunchBreak] = useState<{ time: string; status: 'Normal' | 'Late' | '-' }>({ time: '-', status: '-' });
+  const [afternoonIn, setAfternoonIn] = useState<{ time: string; status: 'Normal' | 'Late' | '-' }>({ time: '-', status: '-' });
+  const [leaveWork, setLeaveWork] = useState<{ time: string; status: 'Normal' | 'Early' | '-' }>({ time: '-', status: '-' });
+
   const [locationStatus, setLocationStatus] = useState('กำลังระบุตำแหน่งด้วย GPS...');
   const [isWithinArea, setIsWithinArea] = useState(false);
+  const [nowDate, setNowDate] = useState<Date | null>(null);
 
   // Attendance history
   const [history, setHistory] = useState<AttendanceLog[]>(INITIAL_ATTENDANCE);
@@ -50,10 +87,62 @@ export default function EmployeeDashboard() {
     verifyEmployee();
   }, [router]);
 
+  // Helper to calculate status from time string
+  const calculateStatusFromTime = (timeStr: string, type: 'morning' | 'lunch' | 'afternoon' | 'leave'): 'Normal' | 'Late' | 'Early' | '-' => {
+    if (!timeStr || timeStr === '-') return '-';
+    try {
+      const match = timeStr.match(/^(\d+):(\d+)\s+(AM|PM)$/i);
+      if (!match) return 'Normal';
+      let [_, hourStr, minuteStr, ampm] = match;
+      let hour = parseInt(hourStr, 10);
+      const minute = parseInt(minuteStr, 10);
+      if (ampm.toUpperCase() === 'PM' && hour !== 12) hour += 12;
+      if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+
+      if (type === 'morning') {
+        const isLate = (hour > 9) || (hour === 9 && minute > 0);
+        return isLate ? 'Late' : 'Normal';
+      }
+      if (type === 'lunch') {
+        const isLate = (hour > 13) || (hour === 13 && minute > 0);
+        return isLate ? 'Late' : 'Normal';
+      }
+      if (type === 'afternoon') {
+        const isLate = (hour > 14) || (hour === 14 && minute > 0);
+        return isLate ? 'Late' : 'Normal';
+      }
+      if (type === 'leave') {
+        const isEarly = (hour < 17);
+        return isEarly ? 'Early' : 'Normal';
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return 'Normal';
+  };
+
+  // Sync individual states if today's log exists in history
+  useEffect(() => {
+    const todayDateStr = new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+    const todayLog = history.find(log => log.date === todayDateStr);
+    if (todayLog) {
+      const parseStatus = (time: string, type: 'morning' | 'lunch' | 'afternoon' | 'leave') => {
+        if (time === '-') return '-';
+        return calculateStatusFromTime(time, type);
+      };
+
+      setMorningIn({ time: todayLog.morningIn, status: parseStatus(todayLog.morningIn, 'morning') as any });
+      setLunchBreak({ time: todayLog.lunchBreak, status: parseStatus(todayLog.lunchBreak, 'lunch') as any });
+      setAfternoonIn({ time: todayLog.afternoonIn, status: parseStatus(todayLog.afternoonIn, 'afternoon') as any });
+      setLeaveWork({ time: todayLog.leaveWork, status: parseStatus(todayLog.leaveWork, 'leave') as any });
+    }
+  }, [history]);
+
   // Live clock
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
+      setNowDate(now);
       setCurrentTime(now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
       setCurrentDate(now.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
     };
@@ -79,48 +168,74 @@ export default function EmployeeDashboard() {
     });
   };
 
-  const handleCheckIn = () => {
+  const handleRecord = (periodId: 'morning' | 'lunch' | 'afternoon' | 'leave') => {
     if (!isWithinArea) return;
     const now = new Date();
     const formattedTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     
-    // Check if late (after 08:30 AM)
     const hour = now.getHours();
     const minute = now.getMinutes();
-    const isLate = (hour > 8) || (hour === 8 && minute > 30);
 
-    setCheckInTime(formattedTime);
-    setIsCheckedIn(true);
+    let checkStatus: 'Normal' | 'Late' | 'Early' = 'Normal';
+
+    if (periodId === 'morning') {
+      const isLate = (hour > 9) || (hour === 9 && minute > 0);
+      checkStatus = isLate ? 'Late' : 'Normal';
+      setMorningIn({ time: formattedTime, status: checkStatus });
+    } else if (periodId === 'lunch') {
+      const isLate = (hour > 13) || (hour === 13 && minute > 0);
+      checkStatus = isLate ? 'Late' : 'Normal';
+      setLunchBreak({ time: formattedTime, status: checkStatus });
+    } else if (periodId === 'afternoon') {
+      const isLate = (hour > 14) || (hour === 14 && minute > 0);
+      checkStatus = isLate ? 'Late' : 'Normal';
+      setAfternoonIn({ time: formattedTime, status: checkStatus });
+    } else if (periodId === 'leave') {
+      const isEarly = (hour < 17);
+      checkStatus = isEarly ? 'Early' : 'Normal';
+      setLeaveWork({ time: formattedTime, status: checkStatus });
+    }
 
     const todayDateStr = now.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
     const todayDayStr = now.toLocaleDateString('th-TH', { weekday: 'long' });
 
-    // Add to history list as pending check-out
-    const newLog: AttendanceLog = {
-      date: todayDateStr,
-      day: todayDayStr,
-      checkIn: formattedTime,
-      checkOut: '-',
-      status: isLate ? 'Late' : 'Normal',
-    };
-    setHistory([newLog, ...history]);
-  };
-
-  const handleCheckOut = () => {
-    const now = new Date();
-    const formattedTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-    
-    setCheckOutTime(formattedTime);
-    setIsCheckedOut(true);
-
-    // Update the first item in history with check-out time
     setHistory(prevHistory => {
       const updated = [...prevHistory];
-      if (updated.length > 0) {
-        updated[0] = {
-          ...updated[0],
-          checkOut: formattedTime,
-        };
+      const hasToday = updated.length > 0 && updated[0].date === todayDateStr;
+
+      const currentMorning = periodId === 'morning' ? formattedTime : (hasToday ? updated[0].morningIn : '-');
+      const currentLunch = periodId === 'lunch' ? formattedTime : (hasToday ? updated[0].lunchBreak : '-');
+      const currentAfternoon = periodId === 'afternoon' ? formattedTime : (hasToday ? updated[0].afternoonIn : '-');
+      const currentLeave = periodId === 'leave' ? formattedTime : (hasToday ? updated[0].leaveWork : '-');
+
+      const morningStatus = currentMorning !== '-' ? calculateStatusFromTime(currentMorning, 'morning') : '-';
+      const lunchStatus = currentLunch !== '-' ? calculateStatusFromTime(currentLunch, 'lunch') : '-';
+      const afternoonStatus = currentAfternoon !== '-' ? calculateStatusFromTime(currentAfternoon, 'afternoon') : '-';
+      const leaveStatus = currentLeave !== '-' ? calculateStatusFromTime(currentLeave, 'leave') : '-';
+
+      const statuses = [morningStatus, lunchStatus, afternoonStatus, leaveStatus].filter(s => s !== '-');
+
+      let overallStatus: 'Normal' | 'Late' | 'Incomplete' | 'Absent' = 'Normal';
+      if (statuses.includes('Late') || statuses.includes('Early')) {
+        overallStatus = 'Late';
+      } else if (currentMorning === '-' || currentLunch === '-' || currentAfternoon === '-' || currentLeave === '-') {
+        overallStatus = 'Incomplete';
+      }
+
+      const newLog: AttendanceLog = {
+        date: todayDateStr,
+        day: todayDayStr,
+        morningIn: currentMorning,
+        lunchBreak: currentLunch,
+        afternoonIn: currentAfternoon,
+        leaveWork: currentLeave,
+        status: overallStatus,
+      };
+
+      if (hasToday) {
+        updated[0] = newLog;
+      } else {
+        updated.unshift(newLog);
       }
       return updated;
     });
@@ -220,68 +335,113 @@ export default function EmployeeDashboard() {
           </div>
         </header>
 
-        {/* Large Punch Button Dashboard */}
-        <section className="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-xl text-center flex flex-col items-center relative overflow-hidden">
-          {/* Radial decorative highlight */}
+        {/* 4-Period Check-In Cards Grid */}
+        <section className="bg-slate-900 border border-slate-800 rounded-3xl p-6 lg:p-8 shadow-xl relative overflow-hidden">
           <div className="absolute inset-0 bg-radial from-indigo-600/5 to-transparent pointer-events-none"></div>
 
-          <h3 className="font-extrabold text-xl mb-1.5 relative z-10">บันทึกเวลาทำงาน</h3>
-          <p className="text-slate-400 text-sm mb-8 relative z-10">กดปุ่มด้านล่างเพื่อบันทึกการเข้าหรือออกงานในวันนี้</p>
-
-          <div className="relative z-10 flex flex-col items-center justify-center">
-            
-            {/* Punch IN Button */}
-            {!isCheckedIn ? (
-              <button
-                onClick={handleCheckIn}
-                disabled={!isWithinArea}
-                className={`w-48 h-48 rounded-full border-4 flex flex-col items-center justify-center transition-all duration-300 select-none shadow-xl cursor-pointer ${
-                  isWithinArea 
-                    ? 'bg-indigo-600 border-indigo-500/50 hover:bg-indigo-500 hover:shadow-indigo-500/20 text-white active:scale-95' 
-                    : 'bg-slate-800/40 border-slate-800 text-slate-500 pointer-events-none'
-                }`}
-              >
-                <svg className="w-10 h-10 mb-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-                </svg>
-                <span className="font-black text-lg tracking-wider">เช็คอิน (IN)</span>
-                <span className="text-[10px] text-indigo-200 mt-1">กดเพื่อบันทึกเข้างาน</span>
-              </button>
-            ) : !isCheckedOut ? (
-              /* Punch OUT Button */
-              <button
-                onClick={handleCheckOut}
-                className="w-48 h-48 rounded-full bg-amber-600 border-4 border-amber-500/50 hover:bg-amber-500 hover:shadow-amber-500/20 flex flex-col items-center justify-center text-white transition-all duration-300 shadow-xl active:scale-95 cursor-pointer"
-              >
-                <svg className="w-10 h-10 mb-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-                </svg>
-                <span className="font-black text-lg tracking-wider">เช็คเอาท์ (OUT)</span>
-                <span className="text-[10px] text-amber-200 mt-1">กดเพื่อบันทึกออกงาน</span>
-              </button>
-            ) : (
-              /* Finish State Card */
-              <div className="w-48 h-48 rounded-full bg-emerald-950/20 border-4 border-emerald-500/30 flex flex-col items-center justify-center text-emerald-400 select-none shadow-md">
-                <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <span className="font-extrabold text-sm uppercase tracking-wider">เสร็จสมบูรณ์</span>
-                <span className="text-[10px] text-slate-500 mt-1.5">บันทึกวันงานเรียบร้อย</span>
-              </div>
-            )}
-
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 relative z-10">
+            <div>
+              <h3 className="font-extrabold text-xl">บันทึกเวลาทำงาน 4 ช่วงเวลา</h3>
+              <p className="text-slate-400 text-sm mt-0.5">กรุณาบันทึกเวลาตามช่วงเวลาที่กำหนด</p>
+            </div>
+            <div className="text-xs px-3.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-400 font-semibold">
+              เป้าหมาย: บันทึกครบทุกช่องเพื่อผลสรุปปกติ
+            </div>
           </div>
 
-          {/* Attendance Punch Status summary */}
-          <div className="grid grid-cols-2 gap-4 border-t border-slate-800/80 w-full mt-10 pt-6 max-w-md">
-            <div>
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">เวลาเช็คอินวันนี้</p>
-              <p className="text-xl font-mono font-bold text-slate-200 mt-1">{checkInTime}</p>
-            </div>
-            <div>
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">เวลาเช็คเอาท์วันนี้</p>
-              <p className="text-xl font-mono font-bold text-slate-200 mt-1">{checkOutTime}</p>
-            </div>
+          {/* Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 relative z-10">
+            {[
+              { id: 'morning', name: 'เข้างานเช้า', time: '08:00 - 09:00', state: morningIn, label: 'เช็คอินเช้า' },
+              { id: 'lunch', name: 'พักกลางวัน', time: '12:00 - 13:00', state: lunchBreak, label: 'พักเที่ยง' },
+              { id: 'afternoon', name: 'เข้างานบ่าย', time: '13:00 - 14:00', state: afternoonIn, label: 'ลงเวลาบ่าย' },
+              { id: 'leave', name: 'เลิกงาน', time: '17:00 - 18:00', state: leaveWork, label: 'เช็คเอาท์เย็น' }
+            ].map((period) => {
+              const pState = nowDate ? getPeriodState(period.id as any, nowDate) : { label: 'กำลังตรวจสอบ...', status: 'upcoming', active: false };
+              const isChecked = period.state.time !== '-';
+
+              return (
+                <div 
+                  key={period.id} 
+                  className={`flex flex-col justify-between p-5 rounded-2xl border transition-all duration-300 ${
+                    isChecked 
+                      ? 'bg-emerald-950/10 border-emerald-500/25 hover:border-emerald-500/40 shadow-sm'
+                      : pState.status === 'active'
+                        ? 'bg-indigo-950/10 border-indigo-500/30 shadow-indigo-500/5 hover:border-indigo-500/50 shadow-md ring-1 ring-indigo-500/20'
+                        : pState.status === 'late' || pState.status === 'early'
+                          ? 'bg-amber-950/10 border-amber-500/25 hover:border-amber-500/40 shadow-sm'
+                          : 'bg-slate-950/20 border-slate-850 opacity-80'
+                  }`}
+                >
+                  <div>
+                    {/* Card Title & Slot */}
+                    <div className="flex justify-between items-start gap-2 mb-3">
+                      <div>
+                        <h4 className="font-bold text-sm text-slate-100">{period.name}</h4>
+                        <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{period.time} น.</p>
+                      </div>
+                      
+                      {/* Status Badge */}
+                      {isChecked ? (
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-extrabold border uppercase tracking-wider ${
+                          period.state.status === 'Normal' 
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                            : period.state.status === 'Late'
+                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                              : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                        }`}>
+                          {period.state.status === 'Normal' && 'ตรงเวลา'}
+                          {period.state.status === 'Late' && 'สาย'}
+                          {period.state.status === 'Early' && 'กลับก่อน'}
+                        </span>
+                      ) : (
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-extrabold border uppercase tracking-wider ${
+                          pState.status === 'active' 
+                            ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30 animate-pulse' 
+                            : pState.status === 'late' || pState.status === 'early'
+                              ? 'bg-amber-500/15 text-amber-400 border-amber-500/25'
+                              : 'bg-slate-800 text-slate-500 border-slate-750'
+                        }`}>
+                          {pState.label}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Clocked Time */}
+                    <div className="my-4">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">เวลาบันทึก</p>
+                      <p className="text-2xl font-mono font-black text-slate-200 mt-1 tracking-tight">
+                        {period.state.time}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Button */}
+                  {!isChecked ? (
+                    <button
+                      onClick={() => handleRecord(period.id as any)}
+                      disabled={!isWithinArea || !pState.active}
+                      className={`w-full py-2 px-3 rounded-xl border text-xs font-bold transition duration-300 shadow-sm cursor-pointer select-none active:scale-[0.98] ${
+                        !isWithinArea || !pState.active
+                          ? 'bg-slate-800/20 border-slate-800 text-slate-600 pointer-events-none'
+                          : pState.status === 'active'
+                            ? 'bg-indigo-600 border-indigo-500 hover:bg-indigo-500 hover:shadow-indigo-500/10 text-white'
+                            : 'bg-amber-600/20 hover:bg-amber-600/30 border-amber-500/30 text-amber-400 hover:text-amber-300'
+                      }`}
+                    >
+                      {pState.status === 'late' ? 'บันทึกสาย' : pState.status === 'early' ? 'ลงเวลากลับก่อน' : 'บันทึกเวลา'}
+                    </button>
+                  ) : (
+                    <div className="w-full py-2 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center gap-1.5 select-none">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                      บันทึกเรียบร้อย
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </section>
 
@@ -290,13 +450,15 @@ export default function EmployeeDashboard() {
           <h3 className="font-bold text-lg mb-5">ประวัติการลงเวลาสัปดาห์นี้</h3>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left min-w-[700px]">
               <thead>
                 <tr className="border-b border-slate-800 text-xs font-bold text-slate-500 uppercase tracking-wider">
                   <th className="pb-3 px-4">วันที่ / วัน</th>
-                  <th className="pb-3 px-4">บันทึกเข้างาน</th>
-                  <th className="pb-3 px-4">บันทึกออกงาน</th>
-                  <th className="pb-3 px-4 text-center">สถานะ</th>
+                  <th className="pb-3 px-4">เข้างานเช้า (08-09)</th>
+                  <th className="pb-3 px-4">พักกลางวัน (12-13)</th>
+                  <th className="pb-3 px-4">เข้างานบ่าย (13-14)</th>
+                  <th className="pb-3 px-4">เลิกงาน (17-18)</th>
+                  <th className="pb-3 px-4 text-center">สถานะรวม</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-sm">
@@ -308,19 +470,50 @@ export default function EmployeeDashboard() {
                         <p className="text-xs text-slate-500 mt-0.5">วัน{log.day}</p>
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-slate-300 font-semibold">{log.checkIn}</td>
-                    <td className="py-3.5 px-4 font-mono text-slate-300 font-semibold">{log.checkOut}</td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-slate-300 font-semibold">{log.morningIn}</span>
+                        {log.morningIn !== '-' && (
+                          <span className={`w-1.5 h-1.5 rounded-full ${calculateStatusFromTime(log.morningIn, 'morning') === 'Late' ? 'bg-amber-400' : 'bg-emerald-400'}`}></span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-slate-300 font-semibold">{log.lunchBreak}</span>
+                        {log.lunchBreak !== '-' && (
+                          <span className={`w-1.5 h-1.5 rounded-full ${calculateStatusFromTime(log.lunchBreak, 'lunch') === 'Late' ? 'bg-amber-400' : 'bg-emerald-400'}`}></span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-slate-300 font-semibold">{log.afternoonIn}</span>
+                        {log.afternoonIn !== '-' && (
+                          <span className={`w-1.5 h-1.5 rounded-full ${calculateStatusFromTime(log.afternoonIn, 'afternoon') === 'Late' ? 'bg-amber-400' : 'bg-emerald-400'}`}></span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-slate-300 font-semibold">{log.leaveWork}</span>
+                        {log.leaveWork !== '-' && (
+                          <span className={`w-1.5 h-1.5 rounded-full ${calculateStatusFromTime(log.leaveWork, 'leave') === 'Early' ? 'bg-rose-400' : 'bg-emerald-400'}`}></span>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-3.5 px-4 text-center">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
                         log.status === 'Normal' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
                         log.status === 'Late' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                        log.status === 'Incomplete' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
                         log.status === 'Absent' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
                         'bg-slate-800 text-slate-400 border-slate-700'
                       }`}>
                         {log.status === 'Normal' && 'ตรงเวลา'}
-                        {log.status === 'Late' && 'สาย'}
+                        {log.status === 'Late' && 'สาย / ไม่ครบ'}
+                        {log.status === 'Incomplete' && 'ยังไม่สิ้นสุด'}
                         {log.status === 'Absent' && 'ขาด'}
-                        {log.status === 'Pending' && 'ยังไม่สิ้นสุด'}
                       </span>
                     </td>
                   </tr>

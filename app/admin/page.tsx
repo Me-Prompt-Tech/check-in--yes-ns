@@ -9,22 +9,57 @@ interface EmployeeLog {
   name: string;
   role: string;
   department: 'Engineering' | 'HR' | 'Marketing' | 'Sales' | 'Design';
-  checkIn: string;
-  checkOut: string;
-  status: 'Present' | 'Late' | 'Absent' | 'On Leave';
+  morningIn: string;
+  lunchBreak: string;
+  afternoonIn: string;
+  leaveWork: string;
+  status: 'Present' | 'Late' | 'Absent' | 'On Leave' | 'Incomplete';
   avatarColor: string;
 }
 
 const INITIAL_LOGS: EmployeeLog[] = [
-  { id: 'EMP001', name: 'สมชาย รักดี', role: 'Frontend Developer', department: 'Engineering', checkIn: '08:15 AM', checkOut: '05:00 PM', status: 'Present', avatarColor: 'bg-indigo-500' },
-  { id: 'EMP002', name: 'วิภาดา รุ่งเรือง', role: 'HR Manager', department: 'HR', checkIn: '08:28 AM', checkOut: '05:15 PM', status: 'Present', avatarColor: 'bg-emerald-500' },
-  { id: 'EMP003', name: 'อนันต์ ทรงคุณ', role: 'UI/UX Designer', department: 'Design', checkIn: '08:45 AM', checkOut: '05:30 PM', status: 'Late', avatarColor: 'bg-amber-500' },
-  { id: 'EMP004', name: 'เกศรา คำใส', role: 'Marketing Specialist', department: 'Marketing', checkIn: '08:20 AM', checkOut: '05:00 PM', status: 'Present', avatarColor: 'bg-pink-500' },
-  { id: 'EMP005', name: 'ประพันธ์ ดำรง', role: 'Backend Developer', department: 'Engineering', checkIn: '08:05 AM', checkOut: '05:00 PM', status: 'Present', avatarColor: 'bg-violet-500' },
-  { id: 'EMP006', name: 'ธนพล มณีรัตน์', role: 'Sales Executive', department: 'Sales', checkIn: '-', checkOut: '-', status: 'Absent', avatarColor: 'bg-rose-500' },
-  { id: 'EMP007', name: 'รพีพรรณ โสภา', role: 'HR Officer', department: 'HR', checkIn: '-', checkOut: '-', status: 'On Leave', avatarColor: 'bg-sky-500' },
-  { id: 'EMP008', name: 'ณัฐวุฒิ มีสุข', role: 'System Admin', department: 'Engineering', checkIn: '08:55 AM', checkOut: '06:00 PM', status: 'Late', avatarColor: 'bg-teal-500' },
+  { id: 'EMP001', name: 'สมชาย รักดี', role: 'Frontend Developer', department: 'Engineering', morningIn: '08:15 AM', lunchBreak: '12:02 PM', afternoonIn: '01:00 PM', leaveWork: '05:00 PM', status: 'Present', avatarColor: 'bg-indigo-500' },
+  { id: 'EMP002', name: 'วิภาดา รุ่งเรือง', role: 'HR Manager', department: 'HR', morningIn: '08:28 AM', lunchBreak: '12:05 PM', afternoonIn: '01:05 PM', leaveWork: '05:15 PM', status: 'Present', avatarColor: 'bg-emerald-500' },
+  { id: 'EMP003', name: 'อนันต์ ทรงคุณ', role: 'UI/UX Designer', department: 'Design', morningIn: '08:45 AM', lunchBreak: '12:10 PM', afternoonIn: '01:15 PM', leaveWork: '05:30 PM', status: 'Late', avatarColor: 'bg-amber-500' },
+  { id: 'EMP004', name: 'เกศรา คำใส', role: 'Marketing Specialist', department: 'Marketing', morningIn: '08:20 AM', lunchBreak: '12:01 PM', afternoonIn: '01:02 PM', leaveWork: '05:00 PM', status: 'Present', avatarColor: 'bg-pink-500' },
+  { id: 'EMP005', name: 'ประพันธ์ ดำรง', role: 'Backend Developer', department: 'Engineering', morningIn: '08:05 AM', lunchBreak: '11:58 AM', afternoonIn: '12:58 PM', leaveWork: '05:00 PM', status: 'Present', avatarColor: 'bg-violet-500' },
+  { id: 'EMP006', name: 'ธนพล มณีรัตน์', role: 'Sales Executive', department: 'Sales', morningIn: '-', lunchBreak: '-', afternoonIn: '-', leaveWork: '-', status: 'Absent', avatarColor: 'bg-rose-500' },
+  { id: 'EMP007', name: 'รพีพรรณ โสภา', role: 'HR Officer', department: 'HR', morningIn: '-', lunchBreak: '-', afternoonIn: '-', leaveWork: '-', status: 'On Leave', avatarColor: 'bg-sky-500' },
+  { id: 'EMP008', name: 'ณัฐวุฒิ มีสุข', role: 'System Admin', department: 'Engineering', morningIn: '08:55 AM', lunchBreak: '12:15 PM', afternoonIn: '01:25 PM', leaveWork: '06:00 PM', status: 'Late', avatarColor: 'bg-teal-500' },
 ];
+
+const calculateStatusFromTime = (timeStr: string, type: 'morning' | 'lunch' | 'afternoon' | 'leave'): 'Normal' | 'Late' | 'Early' | '-' => {
+  if (!timeStr || timeStr === '-') return '-';
+  try {
+    const match = timeStr.match(/^(\d+):(\d+)\s+(AM|PM)$/i);
+    if (!match) return 'Normal';
+    let [_, hourStr, minuteStr, ampm] = match;
+    let hour = parseInt(hourStr, 10);
+    const minute = parseInt(minuteStr, 10);
+    if (ampm.toUpperCase() === 'PM' && hour !== 12) hour += 12;
+    if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+
+    if (type === 'morning') {
+      const isLate = (hour > 9) || (hour === 9 && minute > 0);
+      return isLate ? 'Late' : 'Normal';
+    }
+    if (type === 'lunch') {
+      const isLate = (hour > 13) || (hour === 13 && minute > 0);
+      return isLate ? 'Late' : 'Normal';
+    }
+    if (type === 'afternoon') {
+      const isLate = (hour > 14) || (hour === 14 && minute > 0);
+      return isLate ? 'Late' : 'Normal';
+    }
+    if (type === 'leave') {
+      const isEarly = (hour < 17);
+      return isEarly ? 'Early' : 'Normal';
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  return 'Normal';
+};
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -285,15 +320,17 @@ export default function AdminDashboard() {
 
           {/* Table Container */}
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left">
+            <table className="w-full border-collapse text-left min-w-[900px]">
               <thead>
                 <tr className="border-b border-slate-800 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   <th className="py-4 px-4">รหัสพนักงาน</th>
                   <th className="py-4 px-4">ชื่อพนักงาน</th>
                   <th className="py-4 px-4">แผนก / ตำแหน่ง</th>
-                  <th className="py-4 px-4">เวลาเช็คอิน</th>
-                  <th className="py-4 px-4">เวลาเช็คเอาท์</th>
-                  <th className="py-4 px-4 text-center">สถานะ</th>
+                  <th className="py-4 px-4">เข้างานเช้า (08-09)</th>
+                  <th className="py-4 px-4">พักกลางวัน (12-13)</th>
+                  <th className="py-4 px-4">เข้างานบ่าย (13-14)</th>
+                  <th className="py-4 px-4">เลิกงาน (17-18)</th>
+                  <th className="py-4 px-4 text-center">สถานะรวม</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-sm">
@@ -315,26 +352,58 @@ export default function AdminDashboard() {
                           <span className="text-xs text-slate-500">{log.role}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-4 font-mono font-medium text-slate-300">{log.checkIn}</td>
-                      <td className="py-4 px-4 font-mono font-medium text-slate-300">{log.checkOut}</td>
+                      <td className="py-4 px-4 font-mono font-medium text-slate-300">
+                        <div className="flex items-center gap-1.5">
+                          <span>{log.morningIn}</span>
+                          {log.morningIn !== '-' && (
+                            <span className={`w-1.5 h-1.5 rounded-full ${calculateStatusFromTime(log.morningIn, 'morning') === 'Late' ? 'bg-amber-400' : 'bg-emerald-400'}`}></span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 font-mono font-medium text-slate-300">
+                        <div className="flex items-center gap-1.5">
+                          <span>{log.lunchBreak}</span>
+                          {log.lunchBreak !== '-' && (
+                            <span className={`w-1.5 h-1.5 rounded-full ${calculateStatusFromTime(log.lunchBreak, 'lunch') === 'Late' ? 'bg-amber-400' : 'bg-emerald-400'}`}></span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 font-mono font-medium text-slate-300">
+                        <div className="flex items-center gap-1.5">
+                          <span>{log.afternoonIn}</span>
+                          {log.afternoonIn !== '-' && (
+                            <span className={`w-1.5 h-1.5 rounded-full ${calculateStatusFromTime(log.afternoonIn, 'afternoon') === 'Late' ? 'bg-amber-400' : 'bg-emerald-400'}`}></span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 font-mono font-medium text-slate-300">
+                        <div className="flex items-center gap-1.5">
+                          <span>{log.leaveWork}</span>
+                          {log.leaveWork !== '-' && (
+                            <span className={`w-1.5 h-1.5 rounded-full ${calculateStatusFromTime(log.leaveWork, 'leave') === 'Early' ? 'bg-rose-400' : 'bg-emerald-400'}`}></span>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-4 px-4 text-center">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide border ${
                           log.status === 'Present' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
                           log.status === 'Late' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
                           log.status === 'Absent' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
+                          log.status === 'Incomplete' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
                           'bg-sky-500/10 text-sky-400 border-sky-500/20'
                         }`}>
                           {log.status === 'Present' && 'ตรงเวลา'}
                           {log.status === 'Late' && 'เข้าสาย'}
                           {log.status === 'Absent' && 'ขาดงาน'}
                           {log.status === 'On Leave' && 'ลางาน'}
+                          {log.status === 'Incomplete' && 'ยังไม่ครบถ้วน'}
                         </span>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-500">
+                    <td colSpan={8} className="py-8 text-center text-slate-500">
                       ไม่พบข้อมูลพนักงานที่ค้นหา
                     </td>
                   </tr>
