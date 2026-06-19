@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { checkCurrentSession, logoutAction } from '../actions/auth';
+import { fetchEmployeesAction } from '../actions/employees';
 
 interface AttendanceLog {
   date: string;
@@ -60,6 +61,12 @@ export default function EmployeeDashboard() {
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState('');
   const [currentDate, setCurrentDate] = useState('');
+
+  // Employee real info from session
+  const [empId, setEmpId] = useState('');
+  const [empName, setEmpName] = useState('');
+  const [empDept, setEmpDept] = useState('');
+  const [empRole, setEmpRole] = useState('');
   
   // Checking actions states
   const [morningIn, setMorningIn] = useState<{ time: string; status: 'Normal' | 'Late' | '-' }>({ time: '-', status: '-' });
@@ -74,13 +81,24 @@ export default function EmployeeDashboard() {
   // Attendance history
   const [history, setHistory] = useState<AttendanceLog[]>(INITIAL_ATTENDANCE);
 
-  // Security guard check
+  // Security guard check + fetch employee info
   useEffect(() => {
     async function verifyEmployee() {
       const session = await checkCurrentSession();
       if (!session || session.role !== 'employee') {
         router.push('/');
       } else {
+        setEmpId(session.userId);
+        setEmpName(session.displayName || session.username);
+        // Fetch department and role from server action
+        try {
+          const employees = await fetchEmployeesAction();
+          const me = employees.find(e => e.id === session.userId);
+          if (me) {
+            setEmpDept(me.department || '');
+            setEmpRole(me.role || '');
+          }
+        } catch {/* ignore */}
         setLoading(false);
       }
     }
@@ -256,44 +274,43 @@ export default function EmployeeDashboard() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col lg:flex-row">
       
       {/* Sidebar / Left Column */}
-      <aside className="w-full lg:w-80 bg-slate-900 border-b lg:border-b-0 lg:border-r border-slate-800 p-6 flex flex-col justify-between shrink-0">
+      <aside className="w-full lg:w-64 bg-slate-900 border-b lg:border-b-0 lg:border-r border-slate-800 p-6 flex flex-col justify-between shrink-0">
         <div>
-          {/* Logo / Title */}
+          {/* Profile Card */}
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white shadow-md">
-              E
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white shadow-md text-sm uppercase">
+              {empName ? empName.charAt(0) : 'E'}
             </div>
             <div>
-              <h2 className="font-extrabold tracking-tight text-md">AttendHub</h2>
-              <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">พอร์ทัลพนักงาน</span>
+              <h2 className="font-extrabold tracking-tight text-sm text-slate-100">{empName || 'กำลังโหลด...'}</h2>
+              <span className="text-xs text-slate-500">พนักงาน</span>
             </div>
           </div>
 
-          {/* Employee profile mini card */}
-          <div className="bg-slate-950/50 border border-slate-850 rounded-2xl p-4 mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/20 flex items-center justify-center text-lg font-bold">
-                EP
-              </div>
-              <div>
-                <p className="font-bold text-slate-200">คุณพนักงาน ทดสอบ</p>
-                <span className="text-xs text-slate-500">ID: EMP099 • แผนกทั่วไป</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick instructions / guidelines */}
-          <div className="space-y-4">
-            <div className="p-4 bg-indigo-950/20 border border-indigo-500/10 rounded-xl">
-              <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-1">กฎการบันทึกเวลา</h4>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                เข้างานก่อนเวลา 08:30 น. เพื่อรักษาสถานะปกติ หากเข้างานหลังเวลาจะถือว่า "สาย"
-              </p>
-            </div>
-          </div>
+          {/* Navigation Links */}
+          <nav className="space-y-1.5">
+            <a
+              href="/employee"
+              className="flex items-center gap-3 px-4 py-3 bg-indigo-600/10 border-l-2 border-indigo-500 rounded-lg text-sm font-semibold text-indigo-400 transition"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              บันทึกเวลา
+            </a>
+            <a
+              href="/employee/leaves"
+              className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 rounded-lg text-sm font-medium transition"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              ใบลางาน
+            </a>
+          </nav>
         </div>
 
-        {/* Actions: Change Password & Logout */}
+        {/* Bottom: Change Password + Logout */}
         <div className="pt-6 border-t border-slate-800 mt-6 lg:mt-0 space-y-2">
           <a
             href="/change-password"
@@ -309,8 +326,8 @@ export default function EmployeeDashboard() {
             disabled={isPending}
             className="w-full py-2.5 px-4 bg-slate-800 hover:bg-rose-950/20 hover:text-rose-400 border border-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
             ออกจากระบบ
           </button>

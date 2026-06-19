@@ -42,3 +42,20 @@ model Department {
   
   @@map("departments")
 }
+
+model LeaveRequest {
+  id                   String  @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId           String
+  employeeName         String
+  leaveType            String  // "sick", "personal", "vacation"
+  startDate            String
+  endDate              String
+  reason               String
+  status               String  @default("pending") // "pending", "approved", "rejected"
+  adminNote            String?
+  medicalCertFileData  String? // Base64 encoded file
+  medicalCertFileName  String?
+  createdAt            String
+
+  @@map("leave_requests")
+}
