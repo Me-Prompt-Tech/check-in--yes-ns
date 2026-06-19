@@ -61,6 +61,38 @@ const calculateStatusFromTime = (timeStr: string, type: 'morning' | 'lunch' | 'a
   return 'Normal';
 };
 
+interface Employee {
+  id: string;
+  firstName: string;
+  lastName: string;
+  department: 'Engineering' | 'HR' | 'Marketing' | 'Sales' | 'Design';
+  role: string;
+  username: string;
+  status: 'active' | 'suspended';
+  createdDate: string;
+  forcePasswordChange: boolean;
+}
+
+const INITIAL_EMPLOYEES: Employee[] = [
+  { id: 'EMP001', firstName: 'สมชาย', lastName: 'รักดี', role: 'Frontend Developer', department: 'Engineering', username: 'somchai.r', status: 'active', createdDate: '2026-01-10', forcePasswordChange: false },
+  { id: 'EMP002', firstName: 'วิภาดา', lastName: 'รุ่งเรือง', role: 'HR Manager', department: 'HR', username: 'wiphada.r', status: 'active', createdDate: '2026-02-15', forcePasswordChange: false },
+  { id: 'EMP003', firstName: 'อนันต์', lastName: 'ทรงคุณ', role: 'UI/UX Designer', department: 'Design', username: 'anant.s', status: 'active', createdDate: '2026-03-01', forcePasswordChange: true },
+  { id: 'EMP004', firstName: 'เกศรา', lastName: 'คำใส', role: 'Marketing Specialist', department: 'Marketing', username: 'ketsara.k', status: 'active', createdDate: '2026-03-12', forcePasswordChange: false },
+  { id: 'EMP005', firstName: 'ประพันธ์', lastName: 'ดำรง', role: 'Backend Developer', department: 'Engineering', username: 'praphan.d', status: 'suspended', createdDate: '2026-04-18', forcePasswordChange: false },
+  { id: 'EMP006', firstName: 'ธนพล', lastName: 'มณีรัตน์', role: 'Sales Executive', department: 'Sales', username: 'thanapol.m', status: 'active', createdDate: '2026-05-02', forcePasswordChange: false },
+];
+
+const MOCK_ATTENDANCE_RULES: Record<string, { checkIn: string; checkOut: string; status: 'Present' | 'Late' | 'Absent' | 'On Leave'; avatarColor: string }> = {
+  EMP001: { checkIn: '08:15 AM', checkOut: '05:00 PM', status: 'Present', avatarColor: 'bg-indigo-500' },
+  EMP002: { checkIn: '08:28 AM', checkOut: '05:15 PM', status: 'Present', avatarColor: 'bg-emerald-500' },
+  EMP003: { checkIn: '08:45 AM', checkOut: '05:30 PM', status: 'Late', avatarColor: 'bg-amber-500' },
+  EMP004: { checkIn: '08:20 AM', checkOut: '05:00 PM', status: 'Present', avatarColor: 'bg-pink-500' },
+  EMP005: { checkIn: '08:05 AM', checkOut: '05:00 PM', status: 'Present', avatarColor: 'bg-violet-500' },
+  EMP006: { checkIn: '-', checkOut: '-', status: 'Absent', avatarColor: 'bg-rose-500' },
+};
+
+const COLOR_OPTIONS = ['bg-indigo-500', 'bg-emerald-500', 'bg-amber-500', 'bg-pink-500', 'bg-violet-500', 'bg-rose-500', 'bg-sky-500', 'bg-teal-500'];
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -68,15 +100,44 @@ export default function AdminDashboard() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [deptFilter, setDeptFilter] = useState('All');
-  const [logs, setLogs] = useState<EmployeeLog[]>(INITIAL_LOGS);
+  const [logs, setLogs] = useState<EmployeeLog[]>([]);
 
-  // Security guard check
+  // Security guard check and load shared localStorage database
   useEffect(() => {
     async function verifyAdmin() {
       const session = await checkCurrentSession();
       if (!session || session.role !== 'admin') {
         router.push('/');
       } else {
+        // Load synchronized logs based on the active employee database
+        const localEmp = localStorage.getItem('employee_db');
+        let currentEmployees: Employee[] = [];
+        
+        if (localEmp) {
+          currentEmployees = JSON.parse(localEmp);
+        } else {
+          localStorage.setItem('employee_db', JSON.stringify(INITIAL_EMPLOYEES));
+          currentEmployees = INITIAL_EMPLOYEES;
+        }
+
+        // Map employees to daily logs
+        const synchronizedLogs: EmployeeLog[] = currentEmployees
+          .filter(emp => emp.status === 'active') // Only show active employees in today's report
+          .map((emp, index) => {
+            const rule = MOCK_ATTENDANCE_RULES[emp.id];
+            return {
+              id: emp.id,
+              name: `${emp.firstName} ${emp.lastName}`,
+              role: emp.role,
+              department: emp.department,
+              checkIn: rule ? rule.checkIn : '-',
+              checkOut: rule ? rule.checkOut : '-',
+              status: rule ? rule.status : 'Absent',
+              avatarColor: rule ? rule.avatarColor : COLOR_OPTIONS[index % COLOR_OPTIONS.length]
+            };
+          });
+
+        setLogs(synchronizedLogs);
         setLoading(false);
       }
     }
@@ -129,7 +190,7 @@ export default function AdminDashboard() {
         <div>
           {/* Brand Logo */}
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white shadow-md shadow-indigo-500/20">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white shadow-md">
               A
             </div>
             <div>
@@ -151,14 +212,13 @@ export default function AdminDashboard() {
               ลงชื่อการเข้างานวันนี้
             </a>
             <a 
-              href="#" 
-              onClick={(e) => e.preventDefault()}
+              href="/admin/employees" 
               className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 rounded-lg text-sm font-medium transition"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
               </svg>
-              รายชื่อพนักงาน
+              จัดการข้อมูลพนักงาน
             </a>
             <a 
               href="#" 
