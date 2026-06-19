@@ -102,43 +102,22 @@ export default function AdminDashboard() {
   const [deptFilter, setDeptFilter] = useState('All');
   const [logs, setLogs] = useState<EmployeeLog[]>([]);
 
-  // Security guard check and load shared localStorage database
+  // Security guard check and load MongoDB attendance data
   useEffect(() => {
     async function verifyAdmin() {
       const session = await checkCurrentSession();
       if (!session || session.role !== 'admin') {
         router.push('/');
       } else {
-        // Load synchronized logs based on the active employee database
-        const localEmp = localStorage.getItem('employee_db');
-        let currentEmployees: Employee[] = [];
-        
-        if (localEmp) {
-          currentEmployees = JSON.parse(localEmp);
-        } else {
-          localStorage.setItem('employee_db', JSON.stringify(INITIAL_EMPLOYEES));
-          currentEmployees = INITIAL_EMPLOYEES;
+        try {
+          const { fetchAttendanceTodayAction } = await import('../actions/employees');
+          const data = await fetchAttendanceTodayAction();
+          setLogs(data as EmployeeLog[]);
+        } catch (err) {
+          console.error('Failed to load attendance data:', err);
+        } finally {
+          setLoading(false);
         }
-
-        // Map employees to daily logs
-        const synchronizedLogs: EmployeeLog[] = currentEmployees
-          .filter(emp => emp.status === 'active') // Only show active employees in today's report
-          .map((emp, index) => {
-            const rule = MOCK_ATTENDANCE_RULES[emp.id];
-            return {
-              id: emp.id,
-              name: `${emp.firstName} ${emp.lastName}`,
-              role: emp.role,
-              department: emp.department,
-              checkIn: rule ? rule.checkIn : '-',
-              checkOut: rule ? rule.checkOut : '-',
-              status: rule ? rule.status : 'Absent',
-              avatarColor: rule ? rule.avatarColor : COLOR_OPTIONS[index % COLOR_OPTIONS.length]
-            };
-          });
-
-        setLogs(synchronizedLogs);
-        setLoading(false);
       }
     }
     verifyAdmin();
