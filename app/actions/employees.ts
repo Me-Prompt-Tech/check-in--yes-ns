@@ -246,9 +246,11 @@ export async function fetchEmployeeLogsAction(empId: string) {
     return {
       date: thaiFormattedDate,
       day: dayName,
-      checkIn: item.morningIn,
-      checkOut: item.leaveWork,
-      status: item.status === 'Present' ? 'Normal' : item.status === 'Incomplete' ? 'Pending' : item.status
+      morningIn: item.morningIn,
+      lunchBreak: item.lunchBreak,
+      afternoonIn: item.afternoonIn,
+      leaveWork: item.leaveWork,
+      status: item.status === 'Present' ? 'Normal' : item.status === 'Incomplete' ? 'Incomplete' : item.status
     };
   });
 }

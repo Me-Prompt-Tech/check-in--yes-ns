@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { checkCurrentSession, logoutAction } from '../actions/auth';
-import { fetchEmployeesAction } from '../actions/employees';
+import { fetchEmployeesAction, fetchEmployeeLogsAction, punchAttendanceAction } from '../actions/employees';
 import { ThemeToggle } from '../components/ThemeToggle';
 
 interface AttendanceLog {
@@ -99,7 +99,16 @@ export default function EmployeeDashboard() {
             setEmpDept(me.department || '');
             setEmpRole(me.role || '');
           }
-        } catch {/* ignore */}
+
+          const userLogs = await fetchEmployeeLogsAction(session.userId);
+          if (userLogs && userLogs.length > 0) {
+            setHistory(userLogs as AttendanceLog[]);
+          } else {
+            setHistory([]);
+          }
+        } catch (err) {
+          console.error(err);
+        }
         setLoading(false);
       }
     }
@@ -142,7 +151,9 @@ export default function EmployeeDashboard() {
 
   // Sync individual states if today's log exists in history
   useEffect(() => {
-    const todayDateStr = new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+    const now = new Date();
+    const monthsThai = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    const todayDateStr = `${now.getDate()} ${monthsThai[now.getMonth()]} ${now.getFullYear()}`;
     const todayLog = history.find(log => log.date === todayDateStr);
     if (todayLog) {
       const parseStatus = (time: string, type: 'morning' | 'lunch' | 'afternoon' | 'leave') => {
@@ -188,75 +199,19 @@ export default function EmployeeDashboard() {
   };
 
   const handleRecord = (periodId: 'morning' | 'lunch' | 'afternoon' | 'leave') => {
-    if (!isWithinArea) return;
-    const now = new Date();
-    const formattedTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-    
-    const hour = now.getHours();
-    const minute = now.getMinutes();
+    if (!isWithinArea || !empId) return;
 
-    let checkStatus: 'Normal' | 'Late' | 'Early' = 'Normal';
-
-    if (periodId === 'morning') {
-      const isLate = (hour > 9) || (hour === 9 && minute > 0);
-      checkStatus = isLate ? 'Late' : 'Normal';
-      setMorningIn({ time: formattedTime, status: checkStatus });
-    } else if (periodId === 'lunch') {
-      const isLate = (hour > 13) || (hour === 13 && minute > 0);
-      checkStatus = isLate ? 'Late' : 'Normal';
-      setLunchBreak({ time: formattedTime, status: checkStatus });
-    } else if (periodId === 'afternoon') {
-      const isLate = (hour > 14) || (hour === 14 && minute > 0);
-      checkStatus = isLate ? 'Late' : 'Normal';
-      setAfternoonIn({ time: formattedTime, status: checkStatus });
-    } else if (periodId === 'leave') {
-      const isEarly = (hour < 17);
-      checkStatus = isEarly ? 'Early' : 'Normal';
-      setLeaveWork({ time: formattedTime, status: checkStatus });
-    }
-
-    const todayDateStr = now.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
-    const todayDayStr = now.toLocaleDateString('th-TH', { weekday: 'long' });
-
-    setHistory(prevHistory => {
-      const updated = [...prevHistory];
-      const hasToday = updated.length > 0 && updated[0].date === todayDateStr;
-
-      const currentMorning = periodId === 'morning' ? formattedTime : (hasToday ? updated[0].morningIn : '-');
-      const currentLunch = periodId === 'lunch' ? formattedTime : (hasToday ? updated[0].lunchBreak : '-');
-      const currentAfternoon = periodId === 'afternoon' ? formattedTime : (hasToday ? updated[0].afternoonIn : '-');
-      const currentLeave = periodId === 'leave' ? formattedTime : (hasToday ? updated[0].leaveWork : '-');
-
-      const morningStatus = currentMorning !== '-' ? calculateStatusFromTime(currentMorning, 'morning') : '-';
-      const lunchStatus = currentLunch !== '-' ? calculateStatusFromTime(currentLunch, 'lunch') : '-';
-      const afternoonStatus = currentAfternoon !== '-' ? calculateStatusFromTime(currentAfternoon, 'afternoon') : '-';
-      const leaveStatus = currentLeave !== '-' ? calculateStatusFromTime(currentLeave, 'leave') : '-';
-
-      const statuses = [morningStatus, lunchStatus, afternoonStatus, leaveStatus].filter(s => s !== '-');
-
-      let overallStatus: 'Normal' | 'Late' | 'Incomplete' | 'Absent' = 'Normal';
-      if (statuses.includes('Late') || statuses.includes('Early')) {
-        overallStatus = 'Late';
-      } else if (currentMorning === '-' || currentLunch === '-' || currentAfternoon === '-' || currentLeave === '-') {
-        overallStatus = 'Incomplete';
+    startTransition(async () => {
+      try {
+        const res = await punchAttendanceAction(empId, periodId);
+        if (res.success) {
+          // Re-fetch history to ensure UI is in sync with database
+          const updatedLogs = await fetchEmployeeLogsAction(empId);
+          setHistory(updatedLogs as AttendanceLog[]);
+        }
+      } catch (err) {
+        console.error('Failed to punch attendance:', err);
       }
-
-      const newLog: AttendanceLog = {
-        date: todayDateStr,
-        day: todayDayStr,
-        morningIn: currentMorning,
-        lunchBreak: currentLunch,
-        afternoonIn: currentAfternoon,
-        leaveWork: currentLeave,
-        status: overallStatus,
-      };
-
-      if (hasToday) {
-        updated[0] = newLog;
-      } else {
-        updated.unshift(newLog);
-      }
-      return updated;
     });
   };
 

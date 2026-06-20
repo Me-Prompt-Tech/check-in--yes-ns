@@ -16,8 +16,8 @@ export interface ChangePasswordResponse {
 }
 
 export async function loginAction(formData: FormData): Promise<AuthResponse> {
-  const usernameInput = formData.get('username') as string;
-  const passwordInput = formData.get('password') as string;
+  const usernameInput = (formData.get('username') as string || '').trim();
+  const passwordInput = formData.get('password') as string || '';
 
   if (!usernameInput || !passwordInput) {
     return { success: false, error: 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน' };
@@ -27,9 +27,12 @@ export async function loginAction(formData: FormData): Promise<AuthResponse> {
   await seedDatabase();
 
   try {
-    const user = await prisma.employee.findUnique({
+    const user = await prisma.employee.findFirst({
       where: {
-        username: usernameInput.toLowerCase()
+        username: {
+          equals: usernameInput,
+          mode: 'insensitive'
+        }
       }
     });
 
@@ -47,7 +50,7 @@ export async function loginAction(formData: FormData): Promise<AuthResponse> {
     }
 
     const displayName = `${user.firstName} ${user.lastName}`;
-    const roleType = user.roleType as 'admin' | 'employee' || 'employee';
+    const roleType = (user.roleType === 'admin') ? 'admin' : 'employee';
 
     await createSession(user.id, user.username, displayName, roleType);
 
