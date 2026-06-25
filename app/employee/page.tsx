@@ -4,8 +4,7 @@ import React, { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { checkCurrentSession, logoutAction } from '../actions/auth';
 import { fetchEmployeesAction, fetchEmployeeLogsAction, punchAttendanceAction } from '../actions/employees';
-import { ThemeToggle } from '../components/ThemeToggle';
-
+import { EmployeeSidebar } from '../components/EmployeeSidebar';
 interface AttendanceLog {
   date: string;
   day: string;
@@ -191,13 +190,6 @@ export default function EmployeeDashboard() {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleLogout = () => {
-    startTransition(async () => {
-      await logoutAction();
-      router.push('/');
-    });
-  };
-
   const handleRecord = (periodId: 'morning' | 'lunch' | 'afternoon' | 'leave') => {
     if (!isWithinArea || !empId) return;
 
@@ -230,120 +222,116 @@ export default function EmployeeDashboard() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col lg:flex-row">
       
       {/* Sidebar / Left Column */}
-      <aside className="w-full lg:w-64 bg-slate-900 border-b lg:border-b-0 lg:border-r border-slate-800 p-6 flex flex-col justify-between shrink-0">
-        <div>
-          {/* Profile Card */}
-          <div className="flex items-center justify-between w-full mb-8">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white shadow-md text-sm uppercase">
-                {empName ? empName.charAt(0) : 'E'}
-              </div>
-              <div>
-                <h2 className="font-extrabold tracking-tight text-sm text-slate-100">{empName || 'กำลังโหลด...'}</h2>
-                <span className="text-xs text-slate-500">พนักงาน</span>
-              </div>
-            </div>
-            <ThemeToggle />
-          </div>
-
-          {/* Navigation Links */}
-          <nav className="space-y-1.5">
-            <a
-              href="/employee"
-              className="flex items-center gap-3 px-4 py-3 bg-indigo-600/10 border-l-2 border-indigo-500 rounded-lg text-sm font-semibold text-indigo-400 transition"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              บันทึกเวลา
-            </a>
-            <a
-              href="/employee/leaves"
-              className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 rounded-lg text-sm font-medium transition"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              ใบลางาน
-            </a>
-          </nav>
-        </div>
-
-        {/* Bottom: Change Password + Logout */}
-        <div className="pt-6 border-t border-slate-800 mt-6 lg:mt-0 space-y-2">
-          <a
-            href="/change-password"
-            className="w-full py-2.5 px-4 bg-slate-800/60 hover:bg-indigo-950/20 hover:text-indigo-400 border border-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-            เปลี่ยนรหัสผ่าน
-          </a>
-          <button
-            onClick={handleLogout}
-            disabled={isPending}
-            className="w-full py-2.5 px-4 bg-slate-800 hover:bg-rose-950/20 hover:text-rose-400 border border-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            ออกจากระบบ
-          </button>
-        </div>
-      </aside>
+      <EmployeeSidebar empName={empName} />
 
       {/* Main Panel Content */}
       <main className="flex-1 p-6 lg:p-10 max-w-5xl mx-auto w-full flex flex-col gap-8">
         
-        {/* Header containing Live Clock */}
-        <header className="flex flex-col md:flex-row justify-between items-center gap-6 bg-slate-900 border border-slate-800 rounded-3xl p-6 lg:p-8 shadow-lg">
-          <div className="text-center md:text-left">
-            <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest">เวลาปัจจุบัน</span>
-            <div className="text-4xl lg:text-5xl font-mono tracking-tight mt-1 text-white tabular-nums drop-shadow-sm">
-              {currentTime || '00:00:00'}
-            </div>
-            <p className="text-slate-400 text-sm font-medium mt-1.5">{currentDate}</p>
-          </div>
-          
-          {/* Location Verification Status */}
-          <div className={`flex items-center gap-3.5 px-5 py-3 rounded-2xl border text-sm font-semibold transition-all duration-300 ${
-            isWithinArea 
-              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-              : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-          }`}>
-            <span className={`w-2.5 h-2.5 rounded-full ${isWithinArea ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400 animate-spin'}`}></span>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider opacity-80">พื้นที่เช็คอิน</p>
-              <p className="mt-0.5 font-medium">{locationStatus}</p>
-            </div>
-          </div>
-        </header>
-
-        {/* 4-Period Check-In Cards Grid */}
-        <section className="bg-slate-900 border border-slate-800 rounded-3xl p-6 lg:p-8 shadow-xl relative overflow-hidden">
+        {/* Unified Clock & Check-In Section */}
+        <section className="bg-slate-900 border border-slate-800 rounded-3xl p-6 lg:p-8 shadow-xl relative overflow-hidden flex flex-col lg:flex-row gap-8 lg:gap-0">
           <div className="absolute inset-0 bg-radial from-indigo-600/5 to-transparent pointer-events-none"></div>
 
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 relative z-10">
-            <div>
-              <h3 className="font-extrabold text-xl">บันทึกเวลาทำงาน 4 ช่วงเวลา</h3>
-              <p className="text-slate-400 text-sm mt-0.5">กรุณาบันทึกเวลาตามช่วงเวลาที่กำหนด</p>
+          {/* Left part: Live Clock & Location */}
+          <div className="lg:w-1/3 flex flex-col items-center lg:items-start justify-center gap-8 relative z-10 pb-8 lg:pb-0 lg:pr-8 border-b lg:border-b-0 lg:border-r border-slate-800/60">
+            <div className="text-center lg:text-left">
+              <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest">เวลาปัจจุบัน</span>
+              <div className="text-4xl lg:text-5xl xl:text-6xl font-mono tracking-tight mt-2 text-white tabular-nums drop-shadow-sm">
+                {currentTime || '00:00:00'}
+              </div>
+              <p className="text-slate-400 text-sm font-medium mt-2">{currentDate}</p>
             </div>
-            <div className="text-xs px-3.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-400 font-semibold">
-              เป้าหมาย: บันทึกครบทุกช่องเพื่อผลสรุปปกติ
+            
+            {/* Location Verification Status */}
+            <div className={`w-full flex flex-col sm:flex-row lg:flex-col xl:flex-row items-center lg:items-start xl:items-center gap-4 px-5 py-4 rounded-2xl border transition-all duration-300 ${
+              isWithinArea 
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+            }`}>
+              <span className={`w-3 h-3 shrink-0 rounded-full ${isWithinArea ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400 animate-spin'}`}></span>
+              <div className="text-center sm:text-left lg:text-center xl:text-left">
+                <p className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-0.5">พื้นที่เช็คอิน</p>
+                <p className="font-medium text-xs leading-tight">{locationStatus}</p>
+              </div>
             </div>
           </div>
 
-          {/* Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 relative z-10">
+          {/* Right part: Check-in cards */}
+          <div className="lg:w-2/3 relative z-10 lg:pl-8 flex flex-col justify-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+              <div>
+                <h3 className="font-extrabold text-xl">บันทึกเวลาทำงาน 4 ช่วงเวลา</h3>
+                <p className="text-slate-400 text-sm mt-0.5">กรุณาบันทึกเวลาตามช่วงเวลาที่กำหนด</p>
+              </div>
+              <div className="text-[10px] px-3.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-400 font-semibold shrink-0">
+                เป้าหมาย: บันทึกครบทุกช่อง
+              </div>
+            </div>
+
+            {/* Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 relative z-10">
             {[
-              { id: 'morning', name: 'เข้างานเช้า', time: '08:00 - 09:00', state: morningIn, label: 'เช็คอินเช้า' },
-              { id: 'lunch', name: 'พักกลางวัน', time: '12:00 - 13:00', state: lunchBreak, label: 'พักเที่ยง' },
-              { id: 'afternoon', name: 'เข้างานบ่าย', time: '13:00 - 14:00', state: afternoonIn, label: 'ลงเวลาบ่าย' },
-              { id: 'leave', name: 'เลิกงาน', time: '17:00 - 18:00', state: leaveWork, label: 'เช็คเอาท์เย็น' }
+              {
+                id: 'morning', name: 'เข้างานเช้า', time: '08:00 - 09:00', state: morningIn, label: 'เช็คอินเช้า',
+                icon: (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m8.66-13H20m-16 0H2.34M18.36 5.64l-.7.7M6.34 17.66l-.7.7M18.36 18.36l-.7-.7M6.34 6.34l-.7-.7M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                ),
+                theme: {
+                  active: 'bg-blue-950/10 border-blue-500/30 shadow-blue-500/5 hover:border-blue-500/50 shadow-md ring-1 ring-blue-500/20',
+                  badge: 'bg-blue-500/20 text-blue-400 border-blue-500/30 animate-pulse',
+                  btn: 'bg-blue-600 border-blue-500 hover:bg-blue-500 hover:shadow-blue-500/10 text-white',
+                  iconBg: 'bg-blue-500/10 text-blue-400',
+                }
+              },
+              {
+                id: 'lunch', name: 'พักกลางวัน', time: '12:00 - 13:00', state: lunchBreak, label: 'พักเที่ยง',
+                icon: (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
+                  </svg>
+                ),
+                theme: {
+                  active: 'bg-orange-950/10 border-orange-500/30 shadow-orange-500/5 hover:border-orange-500/50 shadow-md ring-1 ring-orange-500/20',
+                  badge: 'bg-orange-500/20 text-orange-400 border-orange-500/30 animate-pulse',
+                  btn: 'bg-orange-600 border-orange-500 hover:bg-orange-500 hover:shadow-orange-500/10 text-white',
+                  iconBg: 'bg-orange-500/10 text-orange-400',
+                }
+              },
+              {
+                id: 'afternoon', name: 'เข้างานบ่าย', time: '13:00 - 14:00', state: afternoonIn, label: 'ลงเวลาบ่าย',
+                icon: (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                ),
+                theme: {
+                  active: 'bg-teal-950/10 border-teal-500/30 shadow-teal-500/5 hover:border-teal-500/50 shadow-md ring-1 ring-teal-500/20',
+                  badge: 'bg-teal-500/20 text-teal-400 border-teal-500/30 animate-pulse',
+                  btn: 'bg-teal-600 border-teal-500 hover:bg-teal-500 hover:shadow-teal-500/10 text-white',
+                  iconBg: 'bg-teal-500/10 text-teal-400',
+                }
+              },
+              {
+                id: 'leave', name: 'เลิกงาน', time: '17:00 - 18:00', state: leaveWork, label: 'เช็คเอาท์เย็น',
+                icon: (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                ),
+                theme: {
+                  active: 'bg-violet-950/10 border-violet-500/30 shadow-violet-500/5 hover:border-violet-500/50 shadow-md ring-1 ring-violet-500/20',
+                  badge: 'bg-violet-500/20 text-violet-400 border-violet-500/30 animate-pulse',
+                  btn: 'bg-violet-600 border-violet-500 hover:bg-violet-500 hover:shadow-violet-500/10 text-white',
+                  iconBg: 'bg-violet-500/10 text-violet-400',
+                }
+              }
             ].map((period) => {
               const pState = nowDate ? getPeriodState(period.id as any, nowDate) : { label: 'กำลังตรวจสอบ...', status: 'upcoming', active: false };
               const isChecked = period.state.time !== '-';
+
+              // ซ่อนการ์ดที่ยังไม่ถึงเวลาและยังไม่ได้บันทึก
+              if (pState.status === 'upcoming' && !isChecked) return null;
 
               return (
                 <div 
@@ -352,18 +340,25 @@ export default function EmployeeDashboard() {
                     isChecked 
                       ? 'bg-emerald-950/10 border-emerald-500/25 hover:border-emerald-500/40 shadow-sm'
                       : pState.status === 'active'
-                        ? 'bg-indigo-950/10 border-indigo-500/30 shadow-indigo-500/5 hover:border-indigo-500/50 shadow-md ring-1 ring-indigo-500/20'
+                        ? period.theme.active
                         : pState.status === 'late' || pState.status === 'early'
                           ? 'bg-amber-950/10 border-amber-500/25 hover:border-amber-500/40 shadow-sm'
                           : 'bg-slate-950/20 border-slate-850 opacity-80'
                   }`}
                 >
                   <div>
-                    {/* Card Title & Slot */}
+                    {/* Card Title & Icon */}
                     <div className="flex justify-between items-start gap-2 mb-3">
-                      <div>
-                        <h4 className="font-bold text-sm text-slate-100">{period.name}</h4>
-                        <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{period.time} น.</p>
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                          isChecked ? 'bg-emerald-500/10 text-emerald-400' : period.theme.iconBg
+                        }`}>
+                          {period.icon}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-sm text-slate-100">{period.name}</h4>
+                          <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{period.time} น.</p>
+                        </div>
                       </div>
                       
                       {/* Status Badge */}
@@ -382,7 +377,7 @@ export default function EmployeeDashboard() {
                       ) : (
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-extrabold border uppercase tracking-wider ${
                           pState.status === 'active' 
-                            ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30 animate-pulse' 
+                            ? period.theme.badge
                             : pState.status === 'late' || pState.status === 'early'
                               ? 'bg-amber-500/15 text-amber-400 border-amber-500/25'
                               : 'bg-slate-800 text-slate-500 border-slate-750'
@@ -410,7 +405,7 @@ export default function EmployeeDashboard() {
                         !isWithinArea || !pState.active
                           ? 'bg-slate-800/20 border-slate-800 text-slate-600 pointer-events-none'
                           : pState.status === 'active'
-                            ? 'bg-indigo-600 border-indigo-500 hover:bg-indigo-500 hover:shadow-indigo-500/10 text-white'
+                            ? period.theme.btn
                             : 'bg-amber-600/20 hover:bg-amber-600/30 border-amber-500/30 text-amber-400 hover:text-amber-300'
                       }`}
                     >
@@ -427,6 +422,7 @@ export default function EmployeeDashboard() {
                 </div>
               );
             })}
+          </div>
           </div>
         </section>
 
