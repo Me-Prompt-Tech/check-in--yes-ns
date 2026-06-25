@@ -435,9 +435,9 @@ export default function EmployeeManagement() {
           <div>
             <button
               onClick={openAddModal}
-              className="px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition duration-200 shadow-lg shadow-indigo-600/10 flex items-center gap-2 cursor-pointer"
+              className="px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white dark:text-white !text-white text-sm font-semibold rounded-xl transition duration-200 shadow-lg shadow-indigo-600/10 flex items-center gap-2 cursor-pointer"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <svg className="w-4 h-4 text-white dark:text-white !text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4"></path>
               </svg>
               เพิ่มพนักงาน
@@ -459,7 +459,7 @@ export default function EmployeeManagement() {
               placeholder="ค้นหาด้วยชื่อ หรือรหัสพนักงาน..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950/60 border border-slate-800 text-sm focus:outline-none focus:border-indigo-500 text-slate-200 placeholder-slate-650"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-500/70 border border-slate-800 text-sm focus:outline-none focus:border-indigo-500 text-slate-200 placeholder-slate-650"
             />
           </div>
 
@@ -540,31 +540,44 @@ export default function EmployeeManagement() {
                         <div className="flex justify-center items-center gap-2">
                           <button
                             onClick={() => openViewModal(emp)}
-                            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-lg text-slate-300 transition flex items-center gap-1 cursor-pointer"
+                            className="group relative p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition cursor-pointer"
                             title="ดูข้อมูล"
                           >
-                            ดูข้อมูล
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-800 text-[10px] text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 shadow-lg border border-slate-700">ดูข้อมูล</span>
                           </button>
                           <button
                             onClick={() => openEditModal(emp)}
-                            className="px-2.5 py-1.5 bg-indigo-950/40 hover:bg-indigo-900/40 text-xs font-semibold rounded-lg text-indigo-400 border border-indigo-950 transition flex items-center gap-1 cursor-pointer"
+                            className="group relative p-2 bg-indigo-950/40 hover:bg-indigo-900/40 text-indigo-400 border border-indigo-950 rounded-lg transition cursor-pointer"
                             title="แก้ไข"
                           >
-                            แก้ไข
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5l13.732-13.732z" />
+                            </svg>
+                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-800 text-[10px] text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 shadow-lg border border-slate-700">แก้ไข</span>
                           </button>
                           <button
                             onClick={() => openResetPasswordModal(emp)}
-                            className="px-2.5 py-1.5 bg-amber-950/40 hover:bg-amber-900/40 text-xs font-semibold rounded-lg text-amber-400 border border-amber-950 transition flex items-center gap-1 cursor-pointer"
+                            className="group relative p-2 bg-amber-950/40 hover:bg-amber-900/40 text-amber-400 border border-amber-950 rounded-lg transition cursor-pointer"
                             title="รีเซ็ตรหัสผ่าน"
                           >
-                            รีเซ็ต
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                            </svg>
+                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-800 text-[10px] text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 shadow-lg border border-slate-700">รีเซ็ต</span>
                           </button>
                           <button
                             onClick={() => openDeleteModal(emp)}
-                            className="px-2.5 py-1.5 bg-rose-950/40 hover:bg-rose-900/40 text-xs font-semibold rounded-lg text-rose-400 border border-rose-950 transition flex items-center gap-1 cursor-pointer"
+                            className="group relative p-2 bg-rose-950/40 hover:bg-rose-900/40 text-rose-400 border border-rose-950 rounded-lg transition cursor-pointer"
                             title="ลบ"
                           >
-                            ลบ
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-800 text-[10px] text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 shadow-lg border border-slate-700">ลบ</span>
                           </button>
                         </div>
                       </td>
