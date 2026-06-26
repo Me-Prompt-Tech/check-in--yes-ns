@@ -28,10 +28,16 @@ export interface DBAttendanceLog {
 }
 
 const getTodayLocalDate = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const parts = formatter.formatToParts(new Date());
+  const year = parts.find(p => p.type === 'year')?.value;
+  const month = parts.find(p => p.type === 'month')?.value;
+  const day = parts.find(p => p.type === 'day')?.value;
   return `${year}-${month}-${day}`;
 };
 
@@ -339,7 +345,12 @@ export async function punchAttendanceAction(empId: string, type: 'morning' | 'lu
   const today = getTodayLocalDate();
   
   const now = new Date();
-  const formattedTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const formattedTime = now.toLocaleTimeString('en-GB', { 
+    timeZone: 'Asia/Bangkok', 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    hour12: false 
+  });
   
   const existingLog = await prisma.attendance.findUnique({
     where: { id: `${empId}_${today}` }
