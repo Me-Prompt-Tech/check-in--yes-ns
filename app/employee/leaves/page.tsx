@@ -416,8 +416,13 @@ export default function EmployeeLeavePage() {
                     type="date"
                     required
                     value={startDate}
+                    onClick={(e) => {
+                      try {
+                        if ('showPicker' in e.currentTarget) e.currentTarget.showPicker();
+                      } catch (err) {}
+                    }}
                     onChange={e => setStartDate(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
                   />
                 </div>
                 <div>
@@ -427,8 +432,13 @@ export default function EmployeeLeavePage() {
                     required
                     value={endDate}
                     min={startDate}
+                    onClick={(e) => {
+                      try {
+                        if ('showPicker' in e.currentTarget) e.currentTarget.showPicker();
+                      } catch (err) {}
+                    }}
                     onChange={e => setEndDate(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
                   />
                 </div>
               </div>

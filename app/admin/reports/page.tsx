@@ -186,8 +186,13 @@ export default function ReportsPage() {
               <input 
                 type="date" 
                 value={startDate}
+                onClick={(e) => {
+                  try {
+                    if ('showPicker' in e.currentTarget) e.currentTarget.showPicker();
+                  } catch (err) {}
+                }}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer"
               />
             </div>
             <div className="flex-1 w-full">
@@ -195,8 +200,13 @@ export default function ReportsPage() {
               <input 
                 type="date" 
                 value={endDate}
+                onClick={(e) => {
+                  try {
+                    if ('showPicker' in e.currentTarget) e.currentTarget.showPicker();
+                  } catch (err) {}
+                }}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer"
               />
             </div>
             <div className="flex-1 w-full">

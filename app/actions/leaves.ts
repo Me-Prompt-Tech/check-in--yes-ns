@@ -163,3 +163,15 @@ export async function deleteLeaveRequestAction(id: string) {
   await prisma.leaveRequest.delete({ where: { id } });
   return { success: true };
 }
+
+// 6. Get pending leaves count (Admin only)
+export async function getPendingLeavesCountAction() {
+  const session = await checkCurrentSession();
+  if (!session || session.role !== 'admin') return 0;
+
+  const count = await prisma.leaveRequest.count({
+    where: { status: 'pending' }
+  });
+
+  return count;
+}
