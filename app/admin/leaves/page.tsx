@@ -161,6 +161,15 @@ export default function AdminLeavesPage() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               ออกรายงาน
             </a>
+            <a
+              href="/employee"
+              className="flex items-center gap-3 px-4 py-3 text-emerald-400 hover:bg-emerald-900/30 hover:text-emerald-300 rounded-lg text-sm font-medium transition mt-4 border border-emerald-500/20"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              ลงเวลาทำงาน (ผู้ใช้ทั่วไป)
+            </a>
           </nav>
         </div>
         <div className="pt-6 border-t border-slate-800">

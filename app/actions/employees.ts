@@ -14,6 +14,7 @@ export interface DBEmployee {
   createdDate: string;
   forcePasswordChange: boolean;
   roleType?: 'admin' | 'employee';
+  password?: string;
 }
 
 export interface DBAttendanceLog {
@@ -64,13 +65,15 @@ const calculateOverallStatus = (
 const isTimeLate = (timeStr: string, limitHour: number, limitMinute: number): boolean => {
   if (!timeStr || timeStr === '-') return false;
   try {
-    const match = timeStr.match(/^(\d+):(\d+)\s+(AM|PM)$/i);
+    const match = timeStr.match(/^(\d{1,2}):(\d{2})(?:\s+(AM|PM|am|pm))?$/);
     if (!match) return false;
     let [_, hourStr, minuteStr, ampm] = match;
     let hour = parseInt(hourStr, 10);
     const minute = parseInt(minuteStr, 10);
-    if (ampm.toUpperCase() === 'PM' && hour !== 12) hour += 12;
-    if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+    if (ampm) {
+      if (ampm.toUpperCase() === 'PM' && hour !== 12) hour += 12;
+      if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+    }
 
     return (hour > limitHour) || (hour === limitHour && minute > limitMinute);
   } catch (e) {
@@ -126,7 +129,7 @@ export async function createEmployeeAction(emp: DBEmployee) {
       department: emp.department,
       role: emp.role,
       username: emp.username,
-      password: 'password', // Default password
+      password: emp.password || 'password', // Use provided or default
       roleType: emp.roleType || 'employee',
       status: emp.status,
       createdDate: emp.createdDate,
@@ -138,23 +141,72 @@ export async function createEmployeeAction(emp: DBEmployee) {
 }
 
 // 3. Update Employee
-export async function updateEmployeeAction(emp: DBEmployee) {
+export async function updateEmployeeAction(emp: DBEmployee, oldId?: string) {
   await ensureDbSeeded();
   
-  await prisma.employee.update({
-    where: { id: emp.id },
-    data: {
-      firstName: emp.firstName,
-      lastName: emp.lastName,
-      department: emp.department,
-      role: emp.role,
-      username: emp.username,
-      status: emp.status,
-      roleType: emp.roleType
+  if (oldId && oldId !== emp.id) {
+    const existing = await prisma.employee.findUnique({ where: { id: oldId } });
+    if (!existing) return { success: false, error: 'ไม่พบพนักงานในระบบ' };
+    
+    const newIdExists = await prisma.employee.findUnique({ where: { id: emp.id } });
+    if (newIdExists) return { success: false, error: 'รหัสพนักงานนี้มีอยู่ในระบบแล้ว' };
+
+    // Temporarily rename old username to prevent Unique Constraint violation
+    await prisma.employee.update({
+      where: { id: oldId },
+      data: { username: `temp_${Date.now()}_${existing.username}` }
+    });
+
+    await prisma.employee.create({
+      data: {
+        ...existing,
+        id: emp.id,
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        department: emp.department,
+        role: emp.role,
+        username: emp.username,
+        status: emp.status,
+        roleType: emp.roleType || 'employee'
+      }
+    });
+
+    const attendances = await prisma.attendance.findMany({ where: { employeeId: oldId } });
+    for (const att of attendances) {
+      const newAttId = att.id.replace(oldId, emp.id);
+      await prisma.attendance.create({
+        data: {
+          ...att,
+          id: newAttId,
+          employeeId: emp.id
+        }
+      });
+      await prisma.attendance.delete({ where: { id: att.id } });
     }
-  });
-  
-  return { success: true };
+
+    await prisma.leaveRequest.updateMany({
+      where: { employeeId: oldId },
+      data: { employeeId: emp.id }
+    });
+
+    await prisma.employee.delete({ where: { id: oldId } });
+    
+    return { success: true };
+  } else {
+    await prisma.employee.update({
+      where: { id: emp.id },
+      data: {
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        department: emp.department,
+        role: emp.role,
+        username: emp.username,
+        status: emp.status,
+        roleType: emp.roleType
+      }
+    });
+    return { success: true };
+  }
 }
 
 // 4. Reset Password
@@ -188,9 +240,9 @@ export async function fetchAttendanceTodayAction() {
   await ensureDbSeeded();
   const today = getTodayLocalDate();
   
-  // Get all active employees
+  // Get all active employees (including admins)
   const activeEmployees = await prisma.employee.findMany({
-    where: { roleType: { not: 'admin' }, status: 'active' }
+    where: { status: 'active' }
   });
     
   // Get all attendance logs for today
@@ -287,7 +339,7 @@ export async function punchAttendanceAction(empId: string, type: 'morning' | 'lu
   const today = getTodayLocalDate();
   
   const now = new Date();
-  const formattedTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const formattedTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
   
   const existingLog = await prisma.attendance.findUnique({
     where: { id: `${empId}_${today}` }
@@ -345,7 +397,7 @@ export async function fetchAttendanceReportAction(
   await ensureDbSeeded();
 
   // Fetch employees matching the department filter
-  const employeesQuery: any = { roleType: { not: 'admin' } };
+  const employeesQuery: any = {};
   if (departmentFilter && departmentFilter !== 'All') {
     employeesQuery.department = departmentFilter;
   }

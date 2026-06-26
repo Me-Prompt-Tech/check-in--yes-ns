@@ -77,6 +77,7 @@ export default function EmployeeDashboard() {
   const [locationStatus, setLocationStatus] = useState('กำลังระบุตำแหน่งด้วย GPS...');
   const [isWithinArea, setIsWithinArea] = useState(false);
   const [nowDate, setNowDate] = useState<Date | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Attendance history
   const [history, setHistory] = useState<AttendanceLog[]>(INITIAL_ATTENDANCE);
@@ -85,11 +86,12 @@ export default function EmployeeDashboard() {
   useEffect(() => {
     async function verifyEmployee() {
       const session = await checkCurrentSession();
-      if (!session || session.role !== 'employee') {
+      if (!session) {
         router.push('/');
       } else {
         setEmpId(session.userId);
         setEmpName(session.displayName || session.username);
+        setIsAdmin(session.role === 'admin');
         // Fetch department and role from server action
         try {
           const employees = await fetchEmployeesAction();
@@ -118,13 +120,15 @@ export default function EmployeeDashboard() {
   const calculateStatusFromTime = (timeStr: string, type: 'morning' | 'lunch' | 'afternoon' | 'leave'): 'Normal' | 'Late' | 'Early' | '-' => {
     if (!timeStr || timeStr === '-') return '-';
     try {
-      const match = timeStr.match(/^(\d+):(\d+)\s+(AM|PM)$/i);
+      const match = timeStr.match(/^(\d{1,2}):(\d{2})(?:\s+(AM|PM|am|pm))?$/);
       if (!match) return 'Normal';
       let [_, hourStr, minuteStr, ampm] = match;
       let hour = parseInt(hourStr, 10);
       const minute = parseInt(minuteStr, 10);
-      if (ampm.toUpperCase() === 'PM' && hour !== 12) hour += 12;
-      if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+      if (ampm) {
+        if (ampm.toUpperCase() === 'PM' && hour !== 12) hour += 12;
+        if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+      }
 
       if (type === 'morning') {
         const isLate = (hour > 9) || (hour === 9 && minute > 0);
@@ -146,6 +150,19 @@ export default function EmployeeDashboard() {
       console.error(e);
     }
     return 'Normal';
+  };
+
+  const formatTo24Hour = (timeStr: string) => {
+    if (!timeStr || timeStr === '-') return '-';
+    const match = timeStr.match(/^(\d{1,2}):(\d{2})(?:\s+(AM|PM|am|pm))?$/);
+    if (!match) return timeStr;
+    let [_, hourStr, minuteStr, ampm] = match;
+    let hour = parseInt(hourStr, 10);
+    if (ampm) {
+      if (ampm.toUpperCase() === 'PM' && hour !== 12) hour += 12;
+      if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+    }
+    return `${hour.toString().padStart(2, '0')}:${minuteStr}`;
   };
 
   // Sync individual states if today's log exists in history
@@ -222,7 +239,7 @@ export default function EmployeeDashboard() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col lg:flex-row">
       
       {/* Sidebar / Left Column */}
-      <EmployeeSidebar empName={empName} />
+      <EmployeeSidebar empName={empName} isAdmin={isAdmin} />
 
       {/* Main Panel Content */}
       <main className="flex-1 p-6 lg:p-10 max-w-5xl mx-auto w-full flex flex-col gap-8">
@@ -391,7 +408,7 @@ export default function EmployeeDashboard() {
                     <div className="my-4">
                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">เวลาบันทึก</p>
                       <p className="text-2xl font-mono text-slate-200 mt-1 tracking-tight">
-                        {period.state.time}
+                        {formatTo24Hour(period.state.time)}
                       </p>
                     </div>
                   </div>
@@ -453,7 +470,7 @@ export default function EmployeeDashboard() {
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-slate-300 font-semibold">{log.morningIn}</span>
+                        <span className="font-mono text-slate-300 font-semibold">{formatTo24Hour(log.morningIn)}</span>
                         {log.morningIn !== '-' && (
                           <span className={`w-1.5 h-1.5 rounded-full ${calculateStatusFromTime(log.morningIn, 'morning') === 'Late' ? 'bg-amber-400' : 'bg-emerald-400'}`}></span>
                         )}
@@ -461,7 +478,7 @@ export default function EmployeeDashboard() {
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-slate-300 font-semibold">{log.lunchBreak}</span>
+                        <span className="font-mono text-slate-300 font-semibold">{formatTo24Hour(log.lunchBreak)}</span>
                         {log.lunchBreak !== '-' && (
                           <span className={`w-1.5 h-1.5 rounded-full ${calculateStatusFromTime(log.lunchBreak, 'lunch') === 'Late' ? 'bg-amber-400' : 'bg-emerald-400'}`}></span>
                         )}
@@ -469,7 +486,7 @@ export default function EmployeeDashboard() {
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-slate-300 font-semibold">{log.afternoonIn}</span>
+                        <span className="font-mono text-slate-300 font-semibold">{formatTo24Hour(log.afternoonIn)}</span>
                         {log.afternoonIn !== '-' && (
                           <span className={`w-1.5 h-1.5 rounded-full ${calculateStatusFromTime(log.afternoonIn, 'afternoon') === 'Late' ? 'bg-amber-400' : 'bg-emerald-400'}`}></span>
                         )}

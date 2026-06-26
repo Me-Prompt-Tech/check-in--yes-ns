@@ -32,13 +32,15 @@ const INITIAL_LOGS: EmployeeLog[] = [
 const calculateStatusFromTime = (timeStr: string, type: 'morning' | 'lunch' | 'afternoon' | 'leave'): 'Normal' | 'Late' | 'Early' | '-' => {
   if (!timeStr || timeStr === '-') return '-';
   try {
-    const match = timeStr.match(/^(\d+):(\d+)\s+(AM|PM)$/i);
+    const match = timeStr.match(/^(\d{1,2}):(\d{2})(?:\s+(AM|PM|am|pm))?$/);
     if (!match) return 'Normal';
     let [_, hourStr, minuteStr, ampm] = match;
     let hour = parseInt(hourStr, 10);
     const minute = parseInt(minuteStr, 10);
-    if (ampm.toUpperCase() === 'PM' && hour !== 12) hour += 12;
-    if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+    if (ampm) {
+      if (ampm.toUpperCase() === 'PM' && hour !== 12) hour += 12;
+      if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+    }
 
     if (type === 'morning') {
       const isLate = (hour > 9) || (hour === 9 && minute > 0);
@@ -60,6 +62,19 @@ const calculateStatusFromTime = (timeStr: string, type: 'morning' | 'lunch' | 'a
     console.error(e);
   }
   return 'Normal';
+};
+
+const formatTo24Hour = (timeStr: string) => {
+  if (!timeStr || timeStr === '-') return '-';
+  const match = timeStr.match(/^(\d{1,2}):(\d{2})(?:\s+(AM|PM|am|pm))?$/);
+  if (!match) return timeStr;
+  let [_, hourStr, minuteStr, ampm] = match;
+  let hour = parseInt(hourStr, 10);
+  if (ampm) {
+    if (ampm.toUpperCase() === 'PM' && hour !== 12) hour += 12;
+    if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+  }
+  return `${hour.toString().padStart(2, '0')}:${minuteStr}`;
 };
 
 interface Employee {
@@ -412,7 +427,7 @@ export default function AdminDashboard() {
                       </td>
                       <td className="py-4 px-4 font-mono font-medium text-slate-300">
                         <div className="flex items-center gap-1.5">
-                          <span>{log.morningIn}</span>
+                          <span>{formatTo24Hour(log.morningIn)}</span>
                           {log.morningIn !== '-' && (
                             <span className={`w-1.5 h-1.5 rounded-full ${calculateStatusFromTime(log.morningIn, 'morning') === 'Late' ? 'bg-amber-400' : 'bg-emerald-400'}`}></span>
                           )}
@@ -420,7 +435,7 @@ export default function AdminDashboard() {
                       </td>
                       <td className="py-4 px-4 font-mono font-medium text-slate-300">
                         <div className="flex items-center gap-1.5">
-                          <span>{log.lunchBreak}</span>
+                          <span>{formatTo24Hour(log.lunchBreak)}</span>
                           {log.lunchBreak !== '-' && (
                             <span className={`w-1.5 h-1.5 rounded-full ${calculateStatusFromTime(log.lunchBreak, 'lunch') === 'Late' ? 'bg-amber-400' : 'bg-emerald-400'}`}></span>
                           )}
@@ -428,7 +443,7 @@ export default function AdminDashboard() {
                       </td>
                       <td className="py-4 px-4 font-mono font-medium text-slate-300">
                         <div className="flex items-center gap-1.5">
-                          <span>{log.afternoonIn}</span>
+                          <span>{formatTo24Hour(log.afternoonIn)}</span>
                           {log.afternoonIn !== '-' && (
                             <span className={`w-1.5 h-1.5 rounded-full ${calculateStatusFromTime(log.afternoonIn, 'afternoon') === 'Late' ? 'bg-amber-400' : 'bg-emerald-400'}`}></span>
                           )}
@@ -436,7 +451,7 @@ export default function AdminDashboard() {
                       </td>
                       <td className="py-4 px-4 font-mono font-medium text-slate-300">
                         <div className="flex items-center gap-1.5">
-                          <span>{log.leaveWork}</span>
+                          <span>{formatTo24Hour(log.leaveWork)}</span>
                           {log.leaveWork !== '-' && (
                             <span className={`w-1.5 h-1.5 rounded-full ${calculateStatusFromTime(log.leaveWork, 'leave') === 'Early' ? 'bg-rose-400' : 'bg-emerald-400'}`}></span>
                           )}

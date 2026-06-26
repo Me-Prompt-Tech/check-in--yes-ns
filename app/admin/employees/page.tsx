@@ -6,6 +6,7 @@ import { checkCurrentSession, logoutAction } from '../../actions/auth';
 import { fetchEmployeesAction, deleteEmployeeAction, createEmployeeAction, updateEmployeeAction } from '../../actions/employees';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { fetchDepartmentsAction, DBDepartment } from '../../actions/departments';
+import { fetchPrefixesAction, DBEmployeePrefix } from '../../actions/prefixes';
 
 interface Employee {
   id: string;
@@ -31,6 +32,8 @@ export default function EmployeeManagement() {
   const [deptFilter, setDeptFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [deptOptions, setDeptOptions] = useState<DBDepartment[]>([]);
+  const [prefixes, setPrefixes] = useState<DBEmployeePrefix[]>([]);
+  const [formEmpPrefix, setFormEmpPrefix] = useState('EMP');
 
   // Modal States
   const [activeModal, setActiveModal] = useState<'none' | 'add' | 'edit' | 'view' | 'reset-password' | 'delete'>('none');
@@ -132,6 +135,9 @@ export default function EmployeeManagement() {
       try {
         const depts = await fetchDepartmentsAction();
         setDeptOptions(depts);
+        
+        const prefs = await fetchPrefixesAction();
+        setPrefixes(prefs);
       } catch (err) {
         console.error('Failed to load departments', err);
       }
@@ -165,7 +171,9 @@ export default function EmployeeManagement() {
   // Action Triggers
   const openAddModal = () => {
     setValidationError('');
-    setFormId(`EMP${String(employees.length + 1).padStart(3, '0')}`);
+    const defaultPrefix = prefixes.length > 0 ? prefixes[0].prefix : 'EMP';
+    setFormEmpPrefix(defaultPrefix);
+    setFormId(`${defaultPrefix}${String(employees.length + 1).padStart(3, '0')}`);
     setFormFirstName('');
     setFormLastName('');
     setFormDepartment('Engineering');
@@ -182,6 +190,8 @@ export default function EmployeeManagement() {
   const openEditModal = (emp: Employee) => {
     setValidationError('');
     setSelectedEmployee(emp);
+    const prefixMatch = prefixes.find(p => emp.id.startsWith(p.prefix));
+    setFormEmpPrefix(prefixMatch ? prefixMatch.prefix : 'EMP');
     setFormId(emp.id);
     setFormFirstName(emp.firstName);
     setFormLastName(emp.lastName);
@@ -232,6 +242,11 @@ export default function EmployeeManagement() {
       return;
     }
 
+    if (formRoleType === 'admin' && formEmpPrefix !== 'ADM' && formEmpPrefix !== 'EMP') {
+      setValidationError('สิทธิ์แอดมินสามารถกำหนดให้กับรหัสพนักงานที่ขึ้นต้นด้วย ADM หรือ EMP เท่านั้น');
+      return;
+    }
+
     const newEmp: Employee = {
       id: formId,
       firstName: formFirstName,
@@ -262,6 +277,11 @@ export default function EmployeeManagement() {
     // Check username unique except itself
     if (employees.some(emp => emp.username === formUsername && emp.id !== selectedEmployee.id)) {
       setValidationError('Username นี้ถูกใช้งานโดยพนักงานท่านอื่นแล้ว');
+      return;
+    }
+
+    if (formRoleType === 'admin' && formEmpPrefix !== 'ADM' && formEmpPrefix !== 'EMP') {
+      setValidationError('สิทธิ์แอดมินสามารถกำหนดให้กับรหัสพนักงานที่ขึ้นต้นด้วย ADM หรือ EMP เท่านั้น');
       return;
     }
 
@@ -614,15 +634,41 @@ export default function EmployeeManagement() {
 
             <form onSubmit={handleAddSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">รหัสพนักงาน</label>
-                  <input
-                    type="text"
-                    required
-                    value={formId}
-                    onChange={(e) => setFormId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
-                  />
+                <div className="flex gap-2">
+                  <div className="w-1/3">
+                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">คำนำหน้า</label>
+                    <select
+                      value={formEmpPrefix}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormEmpPrefix(val);
+                        setFormId(`${val}${formId.replace(/^[a-zA-Z]+/, '')}`);
+                        if (formRoleType === 'admin' && val !== 'ADM' && val !== 'EMP') {
+                          setFormRoleType('employee');
+                        }
+                      }}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    >
+                      {prefixes.length > 0 ? prefixes.map(p => (
+                        <option key={p.id} value={p.prefix}>{p.prefix} - {p.label}</option>
+                      )) : (
+                        <>
+                          <option value="EMP">EMP</option>
+                          <option value="INT">INT</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                  <div className="w-2/3">
+                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">รหัสพนักงาน</label>
+                    <input
+                      type="text"
+                      required
+                      value={formId}
+                      onChange={(e) => setFormId(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1.5">Username</label>
@@ -745,12 +791,13 @@ export default function EmployeeManagement() {
                       />
                       พนักงาน (Employee)
                     </label>
-                    <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+                    <label className={`flex items-center gap-1.5 text-xs text-slate-300 ${formEmpPrefix !== 'ADM' && formEmpPrefix !== 'EMP' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                       <input
                         type="radio"
                         checked={formRoleType === 'admin'}
                         onChange={() => setFormRoleType('admin')}
-                        className="text-indigo-600 bg-slate-950 border-slate-850 focus:ring-0 focus:ring-offset-0"
+                        disabled={formEmpPrefix !== 'ADM' && formEmpPrefix !== 'EMP'}
+                        className="text-indigo-600 bg-slate-950 border-slate-850 focus:ring-0 focus:ring-offset-0 disabled:opacity-50"
                       />
                       แอดมิน (Admin)
                     </label>
@@ -797,14 +844,40 @@ export default function EmployeeManagement() {
 
             <form onSubmit={handleEditSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">รหัสพนักงาน (ไม่สามารถแก้ไขได้)</label>
-                  <input
-                    type="text"
-                    disabled
-                    value={formId}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800/80 text-sm text-slate-500 font-mono cursor-not-allowed opacity-60"
-                  />
+                <div className="flex gap-2">
+                  <div className="w-1/3">
+                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">เปลี่ยนคำนำหน้า</label>
+                    <select
+                      value={formEmpPrefix}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormEmpPrefix(val);
+                        setFormId(`${val}${formId.replace(/^[a-zA-Z]+/, '')}`);
+                        if (formRoleType === 'admin' && val !== 'ADM' && val !== 'EMP') {
+                          setFormRoleType('employee');
+                        }
+                      }}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    >
+                      {prefixes.length > 0 ? prefixes.map(p => (
+                        <option key={p.id} value={p.prefix}>{p.prefix} - {p.label}</option>
+                      )) : (
+                        <>
+                          <option value="EMP">EMP</option>
+                          <option value="INT">INT</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                  <div className="w-2/3">
+                    <label className="block text-xs font-semibold text-slate-500 mb-1.5">รหัสพนักงาน</label>
+                    <input
+                      type="text"
+                      disabled
+                      value={formId}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800/80 text-sm text-slate-500 font-mono cursor-not-allowed opacity-60"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1.5">Username</label>
@@ -902,12 +975,13 @@ export default function EmployeeManagement() {
                     />
                     พนักงาน (Employee)
                   </label>
-                  <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+                  <label className={`flex items-center gap-1.5 text-xs text-slate-300 ${formEmpPrefix !== 'ADM' && formEmpPrefix !== 'EMP' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                     <input
                       type="radio"
                       checked={formRoleType === 'admin'}
                       onChange={() => setFormRoleType('admin')}
-                      className="text-indigo-600 bg-slate-950 border-slate-850 focus:ring-0"
+                      disabled={formEmpPrefix !== 'ADM' && formEmpPrefix !== 'EMP'}
+                      className="text-indigo-600 bg-slate-950 border-slate-850 focus:ring-0 disabled:opacity-50"
                     />
                     แอดมิน (Admin)
                   </label>

@@ -59,3 +59,11 @@ model LeaveRequest {
 
   @@map("leave_requests")
 }
+
+model EmployeePrefix {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  prefix String @unique
+  label  String
+
+  @@map("employee_prefixes")
+}
