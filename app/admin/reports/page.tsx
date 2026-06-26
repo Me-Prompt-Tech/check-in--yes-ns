@@ -283,6 +283,7 @@ export default function ReportsPage() {
                   <th className="px-6 py-4 font-semibold text-center">เข้างาน (บ่าย)</th>
                   <th className="px-6 py-4 font-semibold text-center">เลิกงาน</th>
                   <th className="px-6 py-4 font-semibold">สถานะ</th>
+                  <th className="px-6 py-4 font-semibold">หมายเหตุ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50 text-slate-300">
@@ -313,11 +314,14 @@ export default function ReportsPage() {
                            log.status === 'Incomplete' ? 'ไม่สมบูรณ์' : log.status}
                         </span>
                       </td>
+                      <td className="px-6 py-4 text-xs text-slate-400 max-w-[200px] truncate" title={(log as any).earlyLeaveReason || '-'}>
+                        {(log as any).earlyLeaveReason ? <span className="text-rose-400">{(log as any).earlyLeaveReason}</span> : '-'}
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
                       ไม่พบข้อมูลรายงานในเงื่อนไขที่เลือก
                     </td>
                   </tr>

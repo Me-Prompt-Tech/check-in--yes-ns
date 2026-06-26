@@ -32,6 +32,7 @@ model Attendance {
   afternoonIn  String @default("-")
   leaveWork    String @default("-")
   status       String @default("Absent")
+  earlyLeaveReason String?
 
   @@map("attendance")
 }

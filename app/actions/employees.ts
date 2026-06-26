@@ -25,6 +25,7 @@ export interface DBAttendanceLog {
   afternoonIn: string;
   leaveWork: string;
   status: 'Present' | 'Late' | 'Absent' | 'On Leave' | 'Incomplete';
+  earlyLeaveReason?: string | null;
 }
 
 const getTodayLocalDate = () => {
@@ -273,6 +274,7 @@ export async function fetchAttendanceTodayAction() {
       afternoonIn: log ? log.afternoonIn : '-',
       leaveWork: log ? log.leaveWork : '-',
       status: log ? log.status : 'Absent',
+      earlyLeaveReason: log ? log.earlyLeaveReason : null,
       avatarColor: COLOR_OPTIONS[index % COLOR_OPTIONS.length]
     };
   });
@@ -308,6 +310,7 @@ export async function fetchEmployeeLogsAction(empId: string) {
       lunchBreak: item.lunchBreak,
       afternoonIn: item.afternoonIn,
       leaveWork: item.leaveWork,
+      earlyLeaveReason: item.earlyLeaveReason,
       status: item.status === 'Present' ? 'Normal' : item.status === 'Incomplete' ? 'Incomplete' : item.status
     };
   });
@@ -340,7 +343,7 @@ export async function fetchEmployeeLogTodayAction(empId: string) {
 }
 
 // 9. Punch In/Out Operation from Employee page
-export async function punchAttendanceAction(empId: string, type: 'morning' | 'lunch' | 'afternoon' | 'leave') {
+export async function punchAttendanceAction(empId: string, type: 'morning' | 'lunch' | 'afternoon' | 'leave', earlyLeaveReason?: string) {
   await ensureDbSeeded();
   const today = getTodayLocalDate();
   
@@ -375,15 +378,21 @@ export async function punchAttendanceAction(empId: string, type: 'morning' | 'lu
   
   const status = calculateOverallStatus(morningIn, lunchBreak, afternoonIn, leaveWork);
   
+  const updateData: any = {
+    morningIn,
+    lunchBreak,
+    afternoonIn,
+    leaveWork,
+    status
+  };
+  
+  if (type === 'leave' && earlyLeaveReason) {
+    updateData.earlyLeaveReason = earlyLeaveReason;
+  }
+
   await prisma.attendance.upsert({
     where: { id: `${empId}_${today}` },
-    update: {
-      morningIn,
-      lunchBreak,
-      afternoonIn,
-      leaveWork,
-      status
-    },
+    update: updateData,
     create: {
       id: `${empId}_${today}`,
       employeeId: empId,
@@ -392,7 +401,8 @@ export async function punchAttendanceAction(empId: string, type: 'morning' | 'lu
       lunchBreak,
       afternoonIn,
       leaveWork,
-      status
+      status,
+      earlyLeaveReason: (type === 'leave' && earlyLeaveReason) ? earlyLeaveReason : null
     }
   });
   

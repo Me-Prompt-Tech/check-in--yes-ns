@@ -362,10 +362,17 @@ export default function AdminDashboard() {
                         </div>
                       </td>
                       <td className="py-4 px-4 font-mono font-medium text-slate-300">
-                        <div className="flex items-center gap-1.5">
-                          <span>{formatTo24Hour(log.leaveWork)}</span>
-                          {log.leaveWork !== '-' && (
-                            <span className={`w-1.5 h-1.5 rounded-full ${calculateStatusFromTime(log.leaveWork, 'leave') === 'Early' ? 'bg-rose-400' : 'bg-emerald-400'}`}></span>
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <span>{formatTo24Hour(log.leaveWork)}</span>
+                            {log.leaveWork !== '-' && (
+                              <span className={`w-1.5 h-1.5 rounded-full ${calculateStatusFromTime(log.leaveWork, 'leave') === 'Early' ? 'bg-rose-400' : 'bg-emerald-400'}`}></span>
+                            )}
+                          </div>
+                          {(log as any).earlyLeaveReason && (
+                            <span className="text-[10px] text-rose-400 leading-tight block mt-1 break-words max-w-[150px]">
+                              เหตุผล: {(log as any).earlyLeaveReason}
+                            </span>
                           )}
                         </div>
                       </td>
